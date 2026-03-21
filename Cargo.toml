@@ -1,0 +1,39 @@
+[package]
+name = "compiler"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+regex = "1.12.3"
+
+[[bin]]
+name = "variables_cheatsheet"
+path = "cheatsheets/01_variables_and_types.rs"
+
+[[bin]]
+name = "functions_and_control_flow"
+path = "cheatsheets/02_functions_and_control_flow.rs"
+
+[[bin]]
+name = "ownership_and_borrowing"
+path = "cheatsheets/03_ownership_and_borrowing.rs"
+
+[[bin]]
+name = "structs_and_enums"
+path = "cheatsheets/04_structs_and_enums.rs"
+
+[[bin]]
+name = "traits_and_generics"
+path = "cheatsheets/05_traits_and_generics.rs"
+
+[[bin]]
+name = "collections"
+path = "cheatsheets/06_collections.rs"
+
+[[bin]]
+name = "error_handling"
+path = "cheatsheets/07_error_handling.rs"
+
+[[bin]]
+name = "closures_and_iterators"
+path = "cheatsheets/08_closures_and_iterators.rs"
