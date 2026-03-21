@@ -6,12 +6,38 @@ pub enum Token {
   OpenParen,  // (
   CloseParen, // )
   Semicolon,  // ;
-  // Negation,          // -
-  // BitwiseComplement, // ~
-  // LogicalNegation,   // !
+  UnaryOp(UnaryOp),
   Keyword(Keyword),
   Expr(Expr),
   Identifier(String),
+}
+
+#[derive(Clone, Copy, Default, PartialEq)]
+pub enum Keyword {
+  INT,
+  #[default] // TODO: change this default
+  RETURN,
+}
+
+#[derive(Clone, Copy)]
+pub enum UnaryOp {
+  Negate,     // -
+  BitwiseNot, // ~
+  LogicalNot, // !
+}
+
+#[derive(Clone, Copy)]
+pub enum BinaryOp {
+  Add,      // +
+  Subtract, // -
+  Multiply, // *
+  Divide,   // /
+}
+
+pub enum Expr {
+  LiteralInt(i32),
+  UnOp(UnaryOp, Box<Expr>),
+  // BinOp(BinaryOp, Box<Expr>, Box<Expr>),
 }
 
 impl fmt::Display for Token {
@@ -22,34 +48,39 @@ impl fmt::Display for Token {
       Token::OpenParen => write!(f, "("),
       Token::CloseParen => write!(f, ")"),
       Token::Semicolon => write!(f, ";"),
+      Token::UnaryOp(UnaryOp::Negate) => write!(f, "-"),
+      Token::UnaryOp(UnaryOp::BitwiseNot) => write!(f, "~"),
+      Token::UnaryOp(UnaryOp::LogicalNot) => write!(f, "!"),
       Token::Keyword(Keyword::INT) => write!(f, "KEYWORD_INT"),
       Token::Keyword(Keyword::RETURN) => write!(f, "KEYWORD_RETURN"),
       Token::Identifier(name) => write!(f, "ID({})", name),
       Token::Expr(val) => match val {
         Expr::LiteralInt(n) => write!(f, "INT({})", n),
+        Expr::UnOp(u, expr) => write!(f, "UNOP()<>"),
       },
     }
   }
 }
 
-#[derive(Clone, Copy, Default)]
-pub enum Keyword {
-  INT,
-  #[default] // TODO: change this default
-  RETURN,
+// #[derive(Default)]
+pub struct Program {
+  pub name: String,
+  pub child_functions: Vec<Function>,
 }
 
-pub enum Expr {
-  LiteralInt(i32),
-}
-
-pub struct Expression {
-  pub value: i32,
-}
-
-pub struct Statement {
-  pub s_type: Keyword,
-  pub child_expressions: Vec<Expression>,
+impl Program {
+  pub fn new() -> Self {
+    Program {
+      name: String::from("unknown"),
+      child_functions: vec![],
+    }
+  }
+  pub fn print(&self) {
+    println!("{}", self.name);
+    for fun in &self.child_functions {
+      fun.print();
+    }
+  }
 }
 
 // #[derive(Default)]
@@ -58,51 +89,55 @@ pub struct Function {
   pub child_statements: Vec<Statement>,
 }
 
-// #[derive(Default)]
-pub struct Program {
-  pub child_functions: Vec<Function>,
-}
-
-impl Expression {
-  pub fn print(&self) {
-    println!("{}", self.value);
-  }
-}
-
-impl Statement {
-  pub fn print(&self) {
-    for expr in &self.child_expressions {
-      match self.s_type {
-        Keyword::RETURN => print!("    RETURN "),
-        Keyword::INT => print!("    INT "),
-      }
-      expr.print();
-    }
-  }
-}
-
 impl Function {
   pub fn print(&self) {
+    println!("FUN {}:\n  body:", self.name);
     for stmt in &self.child_statements {
-      println!("FUN {}:\n  body:", self.name);
       stmt.print();
     }
   }
 }
 
-impl Program {
-  pub fn new() -> Self {
-    Program {
-      child_functions: vec![],
+pub enum Statement {
+  // DeclareFunction(Keyword, Token),
+  Return(Expr),     // return x
+  Expression(Expr), // x + 5, !x
+}
+
+// impl Statement {
+//   pub fn generate(&self) {
+//     match self {
+//       Statement::Return(x) =>
+//     }
+//   }
+// }
+
+impl Statement {
+  pub fn print(&self) {
+    match self {
+      Statement::Expression(x) => x.print(),
+      Statement::Return(x) => {
+        print!("    RETURN ");
+        x.print()
+      }
     }
   }
-  pub fn add_function(&mut self, fun: Function) {
-    self.child_functions.push(fun);
-  }
+}
 
+impl Expr {
   pub fn print(&self) {
-    for fun in &self.child_functions {
-      fun.print();
+    match self {
+      Expr::LiteralInt(val) => {
+        println!("{}", val);
+      }
+      Expr::UnOp(op, operand) => {
+        match op {
+          UnaryOp::Negate => print!("-"),
+          UnaryOp::BitwiseNot => print!("~"),
+          UnaryOp::LogicalNot => print!("!"),
+        }
+        operand.print();
+      }
     }
   }
 }
@@ -132,7 +167,7 @@ impl<'a> Parser<'a> {
   pub fn parse_program(&mut self) -> Program {
     let mut prog = Program::new();
     while self.peek().is_some() {
-      prog.add_function(self.parse_function());
+      prog.child_functions.push(self.parse_function());
     }
     prog
   }
@@ -160,6 +195,9 @@ impl<'a> Parser<'a> {
     let mut statements = Vec::new();
     while !matches!(self.peek(), Some(Token::CloseBrace)) {
       statements.push(self.parse_statement());
+      if matches!(statements.last(), Some(Statement::Return(x))) {
+        break;
+      }
     }
 
     // Expect '}'
@@ -177,20 +215,32 @@ impl<'a> Parser<'a> {
       _ => panic!("Missing keyword"),
     };
 
-    let expr = self.parse_expression();
-
-    assert!(matches!(self.advance(), Some(Token::Semicolon)));
-
-    Statement {
-      s_type,
-      child_expressions: vec![expr],
+    if s_type == Keyword::RETURN {
+      let expr = self.parse_expression();
+      assert!(matches!(self.advance(), Some(Token::Semicolon)));
+      return Statement::Return(expr);
     }
+    panic!("Unsupported statement keyword");
   }
 
-  fn parse_expression(&mut self) -> Expression {
+  fn parse_expression(&mut self) -> Expr {
+    // 1. Try to extract the UnaryOp if the next token is one.
+    // We clone/deref the UnaryOp to drop the immutable borrow on `self` immediately.
+    let unary_op = match self.peek() {
+      Some(Token::UnaryOp(op)) => Some(*op), // assuming `UnaryOp` has #[derive(Clone, Copy)]
+      _ => None,
+    };
+
+    // 2. If we found one, consume the token and parse the operand
+    if let Some(op) = unary_op {
+      self.advance(); // consume the UnaryOp token
+      let operand = self.parse_expression();
+      return Expr::UnOp(op, Box::new(operand)); // Use the specific `op` we found
+    }
+
     match self.advance() {
-      Some(Token::Expr(Expr::LiteralInt(val))) => Expression { value: *val },
-      _ => panic!("Missing int literal"),
+      Some(Token::Expr(Expr::LiteralInt(val))) => Expr::LiteralInt(*val),
+      _ => panic!("Expected expression, found something else"),
     }
   }
 }

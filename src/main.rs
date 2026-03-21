@@ -7,27 +7,17 @@ use std::io::Write;
 
 mod ast;
 
-fn lex_string(path: &String) -> Vec<String> {
+fn lex(path: &String) -> (Vec<ast::Token>, Vec<String>) {
   let content = fs::read_to_string(path).expect("Could not read file");
   // println!("{content}");
-  let re =
-    Regex::new(r"(\{)|(\})|(\()|(\))|(\;)|(int)\b|(return)\b|([a-zA-Z]\w*)|([0-9]+)").unwrap();
-  let hay = &content;
-
-  let mut results: Vec<String> = Vec::new();
-  for cap in re.captures_iter(hay) {
-    results.push(String::from(&cap[0]));
-  }
-  results
-}
-
-fn lex_token(path: &String) -> Vec<ast::Token> {
-  let content = fs::read_to_string(path).expect("Could not read file");
-  // println!("{content}");
-  let re =
-    Regex::new(r"(\{)|(\})|(\()|(\))|(\;)|(int)\b|(return)\b|([a-zA-Z]\w*)|([0-9]+)").unwrap();
-  let mut results: Vec<ast::Token> = Vec::new();
+  let re = Regex::new(
+    r"(\{)|(\})|(\()|(\))|(\;)|(int)\b|(return)\b|([a-zA-Z]\w*)|([0-9]+)|(\-)|(\~)|(\!)",
+  )
+  .unwrap();
+  let mut tokens: Vec<ast::Token> = Vec::new();
+  let mut token_strings: Vec<String> = Vec::new();
   for cap in re.captures_iter(&content) {
+    token_strings.push(String::from(&cap[0]));
     let token = if cap.get(1).is_some() {
       ast::Token::OpenBrace
     } else if cap.get(2).is_some() {
@@ -47,13 +37,18 @@ fn lex_token(path: &String) -> Vec<ast::Token> {
     } else if let Some(m) = cap.get(9) {
       let val = m.as_str().parse().expect("Not a number");
       ast::Token::Expr(ast::Expr::LiteralInt(val))
+    } else if cap.get(10).is_some() {
+      ast::Token::UnaryOp(ast::UnaryOp::Negate)
+    } else if cap.get(11).is_some() {
+      ast::Token::UnaryOp(ast::UnaryOp::BitwiseNot)
+    } else if cap.get(12).is_some() {
+      ast::Token::UnaryOp(ast::UnaryOp::LogicalNot)
     } else {
       continue;
     };
-
-    results.push(token);
+    tokens.push(token);
   }
-  results
+  (tokens, token_strings)
 }
 
 fn parse(tokens: &Vec<ast::Token>) -> ast::Program {
@@ -74,32 +69,58 @@ fn generate(ast: &ast::Program) -> String {
 fn generate_statement(fun: &ast::Function) -> String {
   let mut stmt = String::new();
   for stm in &fun.child_statements {
-    match stm.s_type {
-      ast::Keyword::RETURN => stmt += &format!("movl ${}, %eax\n", stm.child_expressions[0].value),
-      _ => {}
+    match stm {
+      ast::Statement::Return(x) => {
+        stmt += &generate_expression(x);
+        stmt += "movl %eax, %eax\n";
+      }
+      ast::Statement::Expression(x) => {
+        stmt += &generate_expression(x);
+      }
     }
   }
   stmt
+}
+
+fn generate_expression(expr: &ast::Expr) -> String {
+  match expr {
+    ast::Expr::LiteralInt(val) => format!("movl ${}, %eax\n", val),
+    ast::Expr::UnOp(op, operand) => {
+      let mut asm = String::new();
+      asm += &generate_expression(operand);
+      match op {
+        ast::UnaryOp::Negate => {
+          asm += "negl %eax\n";
+        }
+        ast::UnaryOp::BitwiseNot => {
+          asm += "notl %eax\n";
+        }
+        ast::UnaryOp::LogicalNot => {
+          asm += "cmpl $0, %eax\n"; // if (%eax - 0) == 0 this sets the ZF flag to 1
+          asm += "movl $0, %eax\n"; // zero out %eax
+          asm += "sete %al\n"; // sete sets value to 1 if ZF flag is 1; can only modify 1 byte, so we use %al (lower byte of %eax)
+        }
+      }
+      asm
+    }
+  }
 }
 
 fn main() {
   let source_path = String::from("temp/temp.c");
   let assembly_path = String::from("temp/temp.s");
 
-  // Read capture for capture
-  // let x = lex_string(&source_path);
-  // for capture in x {
-  //     println!("{}", capture);
-  // }
-
   // Read tokens
-  let tokens = lex_token(&source_path);
+  let (tokens, token_strings) = lex(&source_path);
   // for tok in &tokens {
   //   println!("{}", tok);
   // }
+  // for tok_str in &token_strings {
+  //   println!("{}", tok_str);
+  // }
 
   let ast = parse(&tokens);
-  // ast.print();
+  ast.print();
 
   let code = generate(&ast);
   println!("{}", code); // String to string literal: let literal = &String[..]
