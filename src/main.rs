@@ -5,6 +5,7 @@ use std::io::Write;
 mod ast;
 mod generator;
 mod lexer;
+mod parser;
 
 fn main() {
   let source_path = String::from("temp/temp.c");
@@ -16,7 +17,7 @@ fn main() {
   // lexer.print_tokens();
   // lexer.print_tokens_string();
 
-  let mut parser = ast::Parser::new(&lexer.tokens);
+  let mut parser = parser::Parser::new(&lexer.tokens);
   let mut program = parser.parse_program();
   program.print();
 

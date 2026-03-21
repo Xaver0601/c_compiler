@@ -51,6 +51,7 @@ impl fmt::Display for Token {
 }
 
 #[derive(Default)]
+// Reads an input file and extracts tokens
 pub struct Lexer {
   pub tokens: Vec<Token>,
   pub tokens_string: Vec<String>,

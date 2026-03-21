@@ -1,5 +1,6 @@
 use crate::ast;
 
+// Converts an AST program into assembly
 pub struct Generator {
   pub ast: ast::Program,
 }
