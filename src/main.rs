@@ -11,7 +11,7 @@ fn lex(path: &String) -> (Vec<ast::Token>, Vec<String>) {
   let content = fs::read_to_string(path).expect("Could not read file");
   // println!("{content}");
   let re = Regex::new(
-    r"(\{)|(\})|(\()|(\))|(\;)|(int)\b|(return)\b|([a-zA-Z]\w*)|([0-9]+)|(\-)|(\~)|(\!)",
+    r"(\{)|(\})|(\()|(\))|(\;)|(int)\b|(return)\b|([a-zA-Z]\w*)|([0-9]+)|(\-)|(\~)|(\!)|(\+)|(\*)|(\/)",
   )
   .unwrap();
   let mut tokens: Vec<ast::Token> = Vec::new();
@@ -38,11 +38,17 @@ fn lex(path: &String) -> (Vec<ast::Token>, Vec<String>) {
       let val = m.as_str().parse().expect("Not a number");
       ast::Token::Expr(ast::Expr::LiteralInt(val))
     } else if cap.get(10).is_some() {
-      ast::Token::UnaryOp(ast::UnaryOp::Negate)
+      ast::Token::Minus
     } else if cap.get(11).is_some() {
-      ast::Token::UnaryOp(ast::UnaryOp::BitwiseNot)
+      ast::Token::Tilde
     } else if cap.get(12).is_some() {
-      ast::Token::UnaryOp(ast::UnaryOp::LogicalNot)
+      ast::Token::Exclamation
+    } else if cap.get(13).is_some() {
+      ast::Token::Plus
+    } else if cap.get(14).is_some() {
+      ast::Token::Star
+    } else if cap.get(15).is_some() {
+      ast::Token::Slash
     } else {
       continue;
     };
@@ -72,7 +78,7 @@ fn generate_statement(fun: &ast::Function) -> String {
     match stm {
       ast::Statement::Return(x) => {
         stmt += &generate_expression(x);
-        stmt += "movl %eax, %eax\n";
+        // stmt += "movl %eax, %eax\n";
       }
       ast::Statement::Expression(x) => {
         stmt += &generate_expression(x);
@@ -103,6 +109,17 @@ fn generate_expression(expr: &ast::Expr) -> String {
       }
       asm
     }
+    ast::Expr::BinOp(op, operand1, operand2) => {
+      let mut asm = String::new();
+      asm += &generate_expression(operand1);
+      match op {
+        ast::BinaryOp::Add => {}
+        ast::BinaryOp::Subtract => {}
+        ast::BinaryOp::Multiply => {}
+        ast::BinaryOp::Divide => {}
+      }
+      asm
+    }
   }
 }
 
@@ -112,9 +129,9 @@ fn main() {
 
   // Read tokens
   let (tokens, token_strings) = lex(&source_path);
-  // for tok in &tokens {
-  //   println!("{}", tok);
-  // }
+  for tok in &tokens {
+    print!("{} ", tok);
+  }
   // for tok_str in &token_strings {
   //   println!("{}", tok_str);
   // }
@@ -123,7 +140,7 @@ fn main() {
   ast.print();
 
   let code = generate(&ast);
-  println!("{}", code); // String to string literal: let literal = &String[..]
+  // println!("{}", code); // String to string literal: let literal = &String[..]
 
   // Write assembly to file
   let mut file = std::fs::File::create(&assembly_path).unwrap();

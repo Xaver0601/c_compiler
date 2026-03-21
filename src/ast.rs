@@ -1,12 +1,17 @@
 use std::fmt;
 
 pub enum Token {
-  OpenBrace,  // {
-  CloseBrace, // }
-  OpenParen,  // (
-  CloseParen, // )
-  Semicolon,  // ;
-  UnaryOp(UnaryOp),
+  OpenBrace,   // {
+  CloseBrace,  // }
+  OpenParen,   // (
+  CloseParen,  // )
+  Semicolon,   // ;
+  Minus,       // -
+  Tilde,       // ~
+  Exclamation, // !
+  Plus,        // +
+  Star,        // *
+  Slash,       // /
   Keyword(Keyword),
   Expr(Expr),
   Identifier(String),
@@ -37,7 +42,7 @@ pub enum BinaryOp {
 pub enum Expr {
   LiteralInt(i32),
   UnOp(UnaryOp, Box<Expr>),
-  // BinOp(BinaryOp, Box<Expr>, Box<Expr>),
+  BinOp(BinaryOp, Box<Expr>, Box<Expr>),
 }
 
 impl fmt::Display for Token {
@@ -48,16 +53,21 @@ impl fmt::Display for Token {
       Token::OpenParen => write!(f, "("),
       Token::CloseParen => write!(f, ")"),
       Token::Semicolon => write!(f, ";"),
-      Token::UnaryOp(UnaryOp::Negate) => write!(f, "-"),
-      Token::UnaryOp(UnaryOp::BitwiseNot) => write!(f, "~"),
-      Token::UnaryOp(UnaryOp::LogicalNot) => write!(f, "!"),
+      Token::Minus => write!(f, "-"),
+      Token::Tilde => write!(f, "~"),
+      Token::Exclamation => write!(f, "!"),
+      Token::Plus => write!(f, "+"),
+      Token::Star => write!(f, "*"),
+      Token::Slash => write!(f, "/"),
       Token::Keyword(Keyword::INT) => write!(f, "KEYWORD_INT"),
       Token::Keyword(Keyword::RETURN) => write!(f, "KEYWORD_RETURN"),
       Token::Identifier(name) => write!(f, "ID({})", name),
       Token::Expr(val) => match val {
         Expr::LiteralInt(n) => write!(f, "INT({})", n),
         Expr::UnOp(u, expr) => write!(f, "UNOP()<>"),
+        Expr::BinOp(u, expr1, expr2) => write!(f, "BINOP()<>"),
       },
+      // _ => write!(f, "NOT IMPLEMENTED"),
     }
   }
 }
@@ -137,6 +147,16 @@ impl Expr {
           UnaryOp::LogicalNot => print!("!"),
         }
         operand.print();
+      }
+      Expr::BinOp(op, operand1, operand2) => {
+        operand1.print();
+        match op {
+          BinaryOp::Add => print!("+"),
+          BinaryOp::Subtract => print!("-"),
+          BinaryOp::Multiply => print!("*"),
+          BinaryOp::Divide => print!("/"),
+        }
+        operand2.print();
       }
     }
   }
@@ -225,9 +245,10 @@ impl<'a> Parser<'a> {
 
   fn parse_expression(&mut self) -> Expr {
     // 1. Try to extract the UnaryOp if the next token is one.
-    // We clone/deref the UnaryOp to drop the immutable borrow on `self` immediately.
     let unary_op = match self.peek() {
-      Some(Token::UnaryOp(op)) => Some(*op), // assuming `UnaryOp` has #[derive(Clone, Copy)]
+      Some(Token::Minus) => Some(UnaryOp::Negate),
+      Some(Token::Tilde) => Some(UnaryOp::BitwiseNot),
+      Some(Token::Exclamation) => Some(UnaryOp::LogicalNot),
       _ => None,
     };
 
