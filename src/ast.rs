@@ -1,26 +1,5 @@
 use crate::lexer::{Keyword, Token};
 
-#[derive(Clone, Copy)]
-pub enum UnaryOp {
-  Negate,     // -
-  BitwiseNot, // ~
-  LogicalNot, // !
-}
-
-#[derive(Clone, Copy)]
-pub enum BinaryOp {
-  Add,      // +
-  Subtract, // -
-  Multiply, // *
-  Divide,   // /
-}
-
-pub enum Expr {
-  LiteralInt(i32),
-  UnOp(UnaryOp, Box<Expr>),
-  BinOp(BinaryOp, Box<Expr>, Box<Expr>),
-}
-
 // #[derive(Default)]
 pub struct Program {
   pub name: String,
@@ -63,14 +42,6 @@ pub enum Statement {
   Expression(Expr), // x + 5, !x
 }
 
-// impl Statement {
-//   pub fn generate(&self) {
-//     match self {
-//       Statement::Return(x) =>
-//     }
-//   }
-// }
-
 impl Statement {
   pub fn print(&self) {
     match self {
@@ -82,6 +53,27 @@ impl Statement {
     }
     println!();
   }
+}
+
+#[derive(Clone, Copy)]
+pub enum UnaryOp {
+  Negate,     // -
+  BitwiseNot, // ~
+  LogicalNot, // !
+}
+
+#[derive(Clone, Copy)]
+pub enum BinaryOp {
+  Add,      // +
+  Subtract, // -
+  Multiply, // *
+  Divide,   // /
+}
+
+pub enum Expr {
+  LiteralInt(i32),
+  UnOp(UnaryOp, Box<Expr>),
+  BinOp(BinaryOp, Box<Expr>, Box<Expr>),
 }
 
 impl Expr {
@@ -127,6 +119,7 @@ impl<'a> Parser<'a> {
     self.tokens.get(self.current)
   }
 
+  // Check if next token is a unary operator (-, ~, !)
   fn peek_unary_op(&self) -> Option<UnaryOp> {
     match self.peek() {
       Some(Token::Minus) => Some(UnaryOp::Negate),
@@ -136,6 +129,7 @@ impl<'a> Parser<'a> {
     }
   }
 
+  // Check if next token is a term operator (*, /)
   fn peek_term_op(&self) -> Option<BinaryOp> {
     match self.peek() {
       Some(Token::Star) => Some(BinaryOp::Multiply),
@@ -144,6 +138,7 @@ impl<'a> Parser<'a> {
     }
   }
 
+  // Check if next token is a expression operator (+, -)
   fn peek_expr_op(&self) -> Option<BinaryOp> {
     match self.peek() {
       Some(Token::Plus) => Some(BinaryOp::Add),
@@ -159,6 +154,8 @@ impl<'a> Parser<'a> {
     tok
   }
 
+  // Initialize recursive parsing of program
+  // <program> ::= <function>
   pub fn parse_program(&mut self) -> Program {
     let mut prog = Program::new();
     while self.peek().is_some() {
@@ -167,11 +164,12 @@ impl<'a> Parser<'a> {
     prog
   }
 
+  // <function> ::= "int" <id> "(" ")" "{" <statement> "}"
   fn parse_function(&mut self) -> Function {
-    // Expect 'int'
+    // Function has to start with 'int'
     match self.advance() {
-      Some(Token::Keyword(x)) => {}
-      _ => panic!("Expected keyword return type"),
+      Some(Token::Keyword(Keyword::INT)) => {}
+      _ => panic!("Expected INT keyword"),
     }
 
     // Expect function name
@@ -190,6 +188,7 @@ impl<'a> Parser<'a> {
     let mut statements = Vec::new();
     while !matches!(self.peek(), Some(Token::CloseBrace)) {
       statements.push(self.parse_statement());
+      // If the last statement was a 'return' the function ends
       if matches!(statements.last(), Some(Statement::Return(x))) {
         break;
       }
@@ -204,18 +203,21 @@ impl<'a> Parser<'a> {
     }
   }
 
+  // <statement> ::= "return" <exp> ";"
   fn parse_statement(&mut self) -> Statement {
-    let stmt_type = match self.advance() {
-      Some(Token::Keyword(x)) => *x,
-      _ => panic!("Missing keyword"),
+    match self.advance() {
+      Some(Token::Keyword(Keyword::RETURN)) => {
+        let expr = self.parse_expression();
+        match self.advance() {
+          Some(Token::Semicolon) => {} // All good, do nothing
+          Some(other) => panic!("Expected ';' after statement, found: {}", other),
+          None => panic!("Expected ';' after statement, found EOF (End of File)"),
+        }
+        return Statement::Return(expr);
+      }
+      Some(other_token) => panic!("Unsupported statement starting with token: {}", other_token),
+      _ => panic!("Unsupported keyword"),
     };
-
-    if stmt_type == Keyword::RETURN {
-      let expr = self.parse_expression();
-      assert!(matches!(self.advance(), Some(Token::Semicolon)));
-      return Statement::Return(expr);
-    }
-    panic!("Unsupported statement keyword");
   }
 
   // <exp> ::= <term> { ("+" | "-") <term> }
@@ -261,7 +263,7 @@ impl<'a> Parser<'a> {
     } {
       self.advance();
       let node = self.parse_expression(); // Recurse back to top
-      if !matches!(self.peek(), Some(Token::CloseParen)) {
+      if !matches!(self.advance(), Some(Token::CloseParen)) {
         // Check for closing parenthesis
         panic!("Parenthesis not closed!");
       }
@@ -270,7 +272,8 @@ impl<'a> Parser<'a> {
       // 3. Probably just LiteralInt left, but keep match for now
       match self.advance() {
         Some(Token::LiteralInt(val)) => return Expr::LiteralInt(*val),
-        _ => panic!("Expected expression, found something else"),
+        Some(other) => panic!("Expected expression, found: {}", other),
+        _ => panic!("Expected expression, found EOF"),
       }
     }
   }

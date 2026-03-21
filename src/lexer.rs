@@ -2,6 +2,7 @@ use regex::Regex;
 use std::fmt;
 use std::fs;
 
+// Literal 'raw' tokens
 pub enum Token {
   OpenBrace,   // {
   CloseBrace,  // }
@@ -17,6 +18,13 @@ pub enum Token {
   Keyword(Keyword),
   LiteralInt(i32),
   Identifier(String),
+}
+
+#[derive(Clone, Copy, Default, PartialEq)]
+pub enum Keyword {
+  INT,
+  #[default] // TODO: change this default
+  RETURN,
 }
 
 impl fmt::Display for Token {
@@ -40,13 +48,6 @@ impl fmt::Display for Token {
       // _ => write!(f, "NOT IMPLEMENTED"),
     }
   }
-}
-
-#[derive(Clone, Copy, Default, PartialEq)]
-pub enum Keyword {
-  INT,
-  #[default] // TODO: change this default
-  RETURN,
 }
 
 #[derive(Default)]
