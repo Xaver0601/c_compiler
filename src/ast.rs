@@ -1,28 +1,4 @@
-use std::fmt;
-
-pub enum Token {
-  OpenBrace,   // {
-  CloseBrace,  // }
-  OpenParen,   // (
-  CloseParen,  // )
-  Semicolon,   // ;
-  Minus,       // -
-  Tilde,       // ~
-  Exclamation, // !
-  Plus,        // +
-  Star,        // *
-  Slash,       // /
-  Keyword(Keyword),
-  Expr(Expr),
-  Identifier(String),
-}
-
-#[derive(Clone, Copy, Default, PartialEq)]
-pub enum Keyword {
-  INT,
-  #[default] // TODO: change this default
-  RETURN,
-}
+use crate::lexer::{Keyword, Token};
 
 #[derive(Clone, Copy)]
 pub enum UnaryOp {
@@ -43,33 +19,6 @@ pub enum Expr {
   LiteralInt(i32),
   UnOp(UnaryOp, Box<Expr>),
   BinOp(BinaryOp, Box<Expr>, Box<Expr>),
-}
-
-impl fmt::Display for Token {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Token::OpenBrace => write!(f, "{{"),
-      Token::CloseBrace => write!(f, "}}"),
-      Token::OpenParen => write!(f, "("),
-      Token::CloseParen => write!(f, ")"),
-      Token::Semicolon => write!(f, ";"),
-      Token::Minus => write!(f, "-"),
-      Token::Tilde => write!(f, "~"),
-      Token::Exclamation => write!(f, "!"),
-      Token::Plus => write!(f, "+"),
-      Token::Star => write!(f, "*"),
-      Token::Slash => write!(f, "/"),
-      Token::Keyword(Keyword::INT) => write!(f, "KEYWORD_INT"),
-      Token::Keyword(Keyword::RETURN) => write!(f, "KEYWORD_RETURN"),
-      Token::Identifier(name) => write!(f, "ID({})", name),
-      Token::Expr(val) => match val {
-        Expr::LiteralInt(n) => write!(f, "INT({})", n),
-        Expr::UnOp(u, expr) => write!(f, "UNOP()<>"),
-        Expr::BinOp(u, expr1, expr2) => write!(f, "BINOP()<>"),
-      },
-      // _ => write!(f, "NOT IMPLEMENTED"),
-    }
-  }
 }
 
 // #[derive(Default)]
@@ -320,7 +269,7 @@ impl<'a> Parser<'a> {
     } else {
       // 3. Probably just LiteralInt left, but keep match for now
       match self.advance() {
-        Some(Token::Expr(Expr::LiteralInt(val))) => return Expr::LiteralInt(*val),
+        Some(Token::LiteralInt(val)) => return Expr::LiteralInt(*val),
         _ => panic!("Expected expression, found something else"),
       }
     }
