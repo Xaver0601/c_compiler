@@ -78,7 +78,7 @@ fn main() {
   // lexer.print_tokens_string();
 
   let mut parser = ast::Parser::new(&lexer.tokens);
-  let ast = parser.parse_program();
+  let mut ast = parser.parse_program();
   ast.print();
 
   let code = generate(&ast);

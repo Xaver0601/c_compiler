@@ -4,20 +4,25 @@ use crate::lexer::{Keyword, Token};
 pub struct Program {
   pub name: String,
   pub child_functions: Vec<Function>,
+  pub pretty_ast: String,
 }
 
 impl Program {
-  pub fn new() -> Self {
+  pub fn new(name: String) -> Self {
     Program {
-      name: String::from("unknown"),
+      name: name,
       child_functions: vec![],
+      pretty_ast: String::new(),
     }
   }
-  pub fn print(&self) {
-    println!("{}", self.name);
+  pub fn print(&mut self) {
+    self
+      .pretty_ast
+      .push_str(&format!("PROGRAM {}\n", self.name));
     for fun in &self.child_functions {
-      fun.print();
+      self.pretty_ast.push_str(&fun.print());
     }
+    println!("{}", self.pretty_ast);
   }
 }
 
@@ -28,11 +33,13 @@ pub struct Function {
 }
 
 impl Function {
-  pub fn print(&self) {
-    println!("FUN {}:\n  body:", self.name);
+  pub fn print(&self) -> String {
+    let mut func_str = String::new();
+    func_str.push_str(&format!("FUNC {}:\n", self.name));
     for stmt in &self.child_statements {
-      stmt.print();
+      func_str.push_str(&stmt.print());
     }
+    func_str
   }
 }
 
@@ -43,15 +50,17 @@ pub enum Statement {
 }
 
 impl Statement {
-  pub fn print(&self) {
+  pub fn print(&self) -> String {
+    let mut stmt_str = String::new();
     match self {
-      Statement::Expression(x) => x.print(),
+      Statement::Expression(x) => {
+        stmt_str.push_str(&format!("  EXPR[{}]", x.print()));
+      }
       Statement::Return(x) => {
-        print!("    RETURN ");
-        x.print()
+        stmt_str.push_str(&format!("  RETURN EXPR[{}] ", x.print()));
       }
     }
-    println!();
+    stmt_str
   }
 }
 
@@ -77,30 +86,28 @@ pub enum Expr {
 }
 
 impl Expr {
-  pub fn print(&self) {
+  pub fn print(&self) -> String {
+    let mut expr_str = String::new();
     match self {
       Expr::LiteralInt(val) => {
-        print!("{}", val);
+        expr_str.push_str(&format!("{}", val));
       }
-      Expr::UnOp(op, operand) => {
-        match op {
-          UnaryOp::Negate => print!("<UN->"),
-          UnaryOp::BitwiseNot => print!("<UN~>"),
-          UnaryOp::LogicalNot => print!("<UN!>"),
-        }
-        operand.print();
-      }
+      Expr::UnOp(op, operand) => match op {
+        UnaryOp::Negate => expr_str.push_str(&format!("-<{}>", &operand.print())),
+        UnaryOp::BitwiseNot => expr_str.push_str(&format!("~<{}>", &operand.print())),
+        UnaryOp::LogicalNot => expr_str.push_str(&format!("!<{}>", &operand.print())),
+      },
       Expr::BinOp(op, operand1, operand2) => {
-        operand1.print();
+        expr_str.push_str(&format!("({}", &operand1.print()));
         match op {
-          BinaryOp::Add => print!("+"),
-          BinaryOp::Subtract => print!("-"),
-          BinaryOp::Multiply => print!("*"),
-          BinaryOp::Divide => print!("/"),
+          BinaryOp::Add => expr_str.push_str(&format!(" + {})", &operand2.print())),
+          BinaryOp::Subtract => expr_str.push_str(&format!(" - {})", &operand2.print())),
+          BinaryOp::Multiply => expr_str.push_str(&format!(" * {})", &operand2.print())),
+          BinaryOp::Divide => expr_str.push_str(&format!(" / {})", &operand2.print())),
         }
-        operand2.print();
       }
     }
+    expr_str
   }
 }
 
@@ -157,7 +164,7 @@ impl<'a> Parser<'a> {
   // Initialize recursive parsing of program
   // <program> ::= <function>
   pub fn parse_program(&mut self) -> Program {
-    let mut prog = Program::new();
+    let mut prog = Program::new(String::from("test.c"));
     while self.peek().is_some() {
       prog.child_functions.push(self.parse_function());
     }
