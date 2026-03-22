@@ -56,11 +56,20 @@ impl Generator {
       ast::Expr::BinOp(op, operand1, operand2) => {
         let mut asm = String::new();
         asm += &Self::generate_expression(operand1);
+        asm += "push %rax\n";
+        asm += &Self::generate_expression(operand2); // 2nd operand in eax
+        asm += "pop %rcx\n"; // 1st operand in ecx
         match op {
-          ast::BinaryOp::Add => {}
-          ast::BinaryOp::Subtract => {}
-          ast::BinaryOp::Multiply => {}
-          ast::BinaryOp::Divide => {}
+          ast::BinaryOp::Add => {
+            asm += "addl %ecx, %eax\n"; // addl [src, dst]: src + dst, saves result in dst
+          }
+          ast::BinaryOp::Subtract => asm += "subl %eax, %ecx\nmovl %ecx, %eax\n", // subl [src, dst]: dst - src, saves result in dst
+          ast::BinaryOp::Multiply => asm += "imull %ecx, %eax\n", // imull [src, dst]: src * dst, saves result in dst
+          ast::BinaryOp::Divide => {
+            asm += "push %rcx\nmovl %eax, %ecx\npop %rax\n"; // Swap: 1st operand in eax, 2nd in ecx
+            asm += "cdq\n"; // Converts eax into edx:eax by sign extension
+            asm += "idivl %ecx\n"; // eax / ecx, eax holds the quotient, edx the remainder
+          }
         }
         asm
       }

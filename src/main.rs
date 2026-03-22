@@ -36,7 +36,7 @@ fn main() {
     .status() // Execute and wait for finish
     .expect("Failed to execute gcc");
   if !status.success() {
-    println!("Compilation failed with status: {}", status);
+    panic!("Compilation failed with status: {}", status);
   }
 
   let status = Command::new("./temp/temp.out")
