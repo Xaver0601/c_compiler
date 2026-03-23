@@ -45,6 +45,44 @@ impl Parser {
     }
   }
 
+  // Check if next token is a relational operator (<, <=, >, >=)
+  fn peek_relational_op(&self) -> Option<BinaryOp> {
+    match self.peek() {
+      Some(Token::Less) => Some(BinaryOp::Less),
+      Some(Token::LessEqual) => Some(BinaryOp::LessEqual),
+      Some(Token::Greater) => Some(BinaryOp::Greater),
+      Some(Token::GreaterEqual) => Some(BinaryOp::GreaterEqual),
+      _ => None,
+    }
+  }
+
+  // Check if next token is a equality operator (!=, ==)
+  fn peek_equality_op(&self) -> Option<BinaryOp> {
+    match self.peek() {
+      Some(Token::Equal) => Some(BinaryOp::Equal),
+      Some(Token::Unequal) => Some(BinaryOp::Unequal),
+      _ => None,
+    }
+  }
+
+  // TODO: think about inlining this
+  // Check if next token is a logical AND operator (&&)
+  fn peek_logical_and_op(&self) -> Option<BinaryOp> {
+    match self.peek() {
+      Some(Token::And) => Some(BinaryOp::And),
+      _ => None,
+    }
+  }
+
+  // TODO: think about inlining this
+  // Check if next token is a logical OR operator (||)
+  fn peek_logical_or_op(&self) -> Option<BinaryOp> {
+    match self.peek() {
+      Some(Token::Or) => Some(BinaryOp::Or),
+      _ => None,
+    }
+  }
+
   // Consume current token and move to next one
   fn advance(&mut self) -> Option<&Token> {
     let tok = self.tokens.get(self.current);
@@ -118,8 +156,52 @@ impl Parser {
     };
   }
 
-  // <exp> ::= <term> { ("+" | "-") <term> }
+  // <exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
   fn parse_expression(&mut self) -> Expr {
+    let mut left = self.parse_logical_and_expression();
+    while let Some(op) = self.peek_logical_or_op() {
+      self.advance(); // consume the token (||)
+      let right = self.parse_logical_and_expression();
+      left = Expr::BinOp(op, Box::new(left), Box::new(right));
+    }
+    left
+  }
+
+  // <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
+  fn parse_logical_and_expression(&mut self) -> Expr {
+    let mut left = self.parse_equality_expression();
+    while let Some(op) = self.peek_logical_and_op() {
+      self.advance(); // consume the token (&&)
+      let right = self.parse_equality_expression();
+      left = Expr::BinOp(op, Box::new(left), Box::new(right));
+    }
+    left
+  }
+
+  // <equality-exp> ::= <relational-exp> { ("!=" | "==") <relational-exp> }
+  fn parse_equality_expression(&mut self) -> Expr {
+    let mut left = self.parse_relational_expression();
+    while let Some(op) = self.peek_equality_op() {
+      self.advance(); // consume the token (!=, ==)
+      let right = self.parse_relational_expression();
+      left = Expr::BinOp(op, Box::new(left), Box::new(right));
+    }
+    left
+  }
+
+  // <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
+  fn parse_relational_expression(&mut self) -> Expr {
+    let mut left = self.parse_additive_expression();
+    while let Some(op) = self.peek_relational_op() {
+      self.advance(); // consume the token (<, <=, >, >=)
+      let right = self.parse_additive_expression();
+      left = Expr::BinOp(op, Box::new(left), Box::new(right));
+    }
+    left
+  }
+
+  // <additive_exp> ::= <term> { ("+" | "-") <term> }
+  fn parse_additive_expression(&mut self) -> Expr {
     let mut left = self.parse_term();
     while let Some(op) = self.peek_expr_op() {
       self.advance(); // consume the + or - token

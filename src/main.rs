@@ -17,6 +17,7 @@ fn main() {
   // let source_path = String::from("temp/temp.c");
   let source_path = String::from(&args[1]);
   let content = fs::read_to_string(&source_path).expect("Could not read file");
+  // println!("{}", content);
 
   // Read tokens
   let mut lexer = lexer::Lexer::default();

@@ -14,6 +14,14 @@ pub enum Token {
   Plus,             // +
   Star,             // *
   Slash,            // /
+  And,              // &&
+  Or,               // ||
+  Equal,            // ==
+  Unequal,          // !=
+  Less,             // <
+  LessEqual,        // <=
+  Greater,          // >
+  GreaterEqual,     // >=
   Keyword(Keyword), // int, return
   LiteralInt(i32),
   Identifier(String), // abcDEF
@@ -40,6 +48,14 @@ impl fmt::Display for Token {
       Token::Plus => write!(f, "+"),
       Token::Star => write!(f, "*"),
       Token::Slash => write!(f, "/"),
+      Token::And => write!(f, "&&"),
+      Token::Or => write!(f, "||"),
+      Token::Equal => write!(f, "=="),
+      Token::Unequal => write!(f, "!="),
+      Token::Less => write!(f, "<"),
+      Token::LessEqual => write!(f, "<="),
+      Token::Greater => write!(f, ">"),
+      Token::GreaterEqual => write!(f, ">="),
       Token::Keyword(Keyword::INT) => write!(f, "KEYWORD_INT"),
       Token::Keyword(Keyword::RETURN) => write!(f, "KEYWORD_RETURN"),
       Token::Identifier(name) => write!(f, "ID({})", name),
@@ -73,6 +89,9 @@ impl Lexer {
     self.tokens_literal = Vec::new();
     // println!("{content}");
     // (?x) at beginning to ignore whitespaces in regex pattern (good for formatting)
+    // Not all characters need the '\' escape character, but keeping it for now.
+    // \< and \> are special characters in Rust regex, so use them without the '\'.
+    // For combined symbols (e.g. '<='), check for the combined symbol first, as regex is 'greedy'.
     let re = Regex::new(
       r"(?x)
     (?P<brace_open>\{)    |
@@ -89,7 +108,16 @@ impl Lexer {
     (?P<excl>\!)          |
     (?P<plus>\+)          |
     (?P<star>\*)          |
-    (?P<slash>\/)",
+    (?P<slash>\/)         |
+    (?P<and>\&\&)         |
+    (?P<or>\|\|)          |
+    (?P<equal>\=\=)       |
+    (?P<unequal>\!\=)     |
+    (?P<less_equal><\=)  |
+    (?P<less><)          |
+    (?P<greater_equal>>\=) |
+    (?P<greater>>)       
+    ",
     )
     .unwrap();
 
@@ -116,6 +144,14 @@ impl Lexer {
           "plus" => Token::Plus,
           "star" => Token::Star,
           "slash" => Token::Slash,
+          "and" => Token::And,
+          "or" => Token::Or,
+          "equal" => Token::Equal,
+          "unequal" => Token::Unequal,
+          "less" => Token::Less,
+          "less_equal" => Token::LessEqual,
+          "greater" => Token::Greater,
+          "greater_equal" => Token::GreaterEqual,
           _ => panic!("Unknown token name: {}", found_name),
         };
         self.tokens.push(token);

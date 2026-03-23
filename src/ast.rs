@@ -75,12 +75,21 @@ pub enum UnaryOp {
   LogicalNot, // !
 }
 
+// Ordered by precedence
 #[derive(Clone, Copy)]
 pub enum BinaryOp {
-  Add,      // +
-  Subtract, // -
-  Multiply, // *
-  Divide,   // /
+  Multiply,     // *
+  Divide,       // /
+  Add,          // +
+  Subtract,     // -
+  Less,         // <
+  LessEqual,    // <=
+  Greater,      // >
+  GreaterEqual, // >=
+  Equal,        // ==
+  Unequal,      // !=
+  And,          // &&
+  Or,           // ||
 }
 
 pub enum Expr {
@@ -108,6 +117,14 @@ impl Expr {
           BinaryOp::Subtract => expr_str.push_str(&format!(" - {})", &operand2.print())),
           BinaryOp::Multiply => expr_str.push_str(&format!(" * {})", &operand2.print())),
           BinaryOp::Divide => expr_str.push_str(&format!(" / {})", &operand2.print())),
+          BinaryOp::Less => expr_str.push_str(&format!(" < {})", &operand2.print())),
+          BinaryOp::LessEqual => expr_str.push_str(&format!(" <= {})", &operand2.print())),
+          BinaryOp::Greater => expr_str.push_str(&format!(" > {})", &operand2.print())),
+          BinaryOp::GreaterEqual => expr_str.push_str(&format!(" >= {})", &operand2.print())),
+          BinaryOp::And => expr_str.push_str(&format!(" && {})", &operand2.print())),
+          BinaryOp::Or => expr_str.push_str(&format!(" || {})", &operand2.print())),
+          BinaryOp::Equal => expr_str.push_str(&format!(" == {})", &operand2.print())),
+          BinaryOp::Unequal => expr_str.push_str(&format!(" != {})", &operand2.print())),
         }
       }
     }

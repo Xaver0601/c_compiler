@@ -48,7 +48,7 @@ impl Generator {
           ast::UnaryOp::LogicalNot => {
             asm += "cmpl $0, %eax\n"; // if (%eax - 0) == 0 this sets the ZF flag to 1
             asm += "movl $0, %eax\n"; // zero out %eax
-            asm += "sete %al\n"; // sete sets value to 1 if ZF flag is 1; can only modify 1 byte, so we use %al (lower byte of %eax)
+            asm += "sete %al\n"; // sete sets value to 1 if ZF flag (zero flag) is 1; can only modify 1 byte, so we use %al (lower byte of %eax)
           }
         }
         asm
@@ -60,15 +60,50 @@ impl Generator {
         asm += &Self::generate_expression(operand2); // 2nd operand in eax
         asm += "pop %rcx\n"; // 1st operand in ecx
         match op {
-          ast::BinaryOp::Add => {
+          &ast::BinaryOp::Add => {
             asm += "addl %ecx, %eax\n"; // addl [src, dst]: src + dst, saves result in dst
           }
-          ast::BinaryOp::Subtract => asm += "subl %eax, %ecx\nmovl %ecx, %eax\n", // subl [src, dst]: dst - src, saves result in dst
-          ast::BinaryOp::Multiply => asm += "imull %ecx, %eax\n", // imull [src, dst]: src * dst, saves result in dst
-          ast::BinaryOp::Divide => {
+          &ast::BinaryOp::Subtract => asm += "subl %eax, %ecx\nmovl %ecx, %eax\n", // subl [src, dst]: dst - src, saves result in dst
+          &ast::BinaryOp::Multiply => asm += "imull %ecx, %eax\n", // imull [src, dst]: src * dst, saves result in dst
+          &ast::BinaryOp::Divide => {
             asm += "push %rcx\nmovl %eax, %ecx\npop %rax\n"; // Swap: 1st operand in eax, 2nd in ecx
             asm += "cdq\n"; // Converts eax into edx:eax by sign extension
             asm += "idivl %ecx\n"; // eax / ecx, eax holds the quotient, edx the remainder
+          }
+          &ast::BinaryOp::Equal => {
+            // Similar to LogicalNot
+            asm += "cmpl %eax, %ecx\n";
+            asm += "movl $0, %eax\n";
+            asm += "sete %al\n";
+          }
+          &ast::BinaryOp::Unequal => {
+            asm += "cmpl %eax, %ecx\n";
+            asm += "movl $0, %eax\n";
+            asm += "setne %al\n";
+          }
+          // These use the SF flag (sign flag)
+          &ast::BinaryOp::Less => {
+            asm += "cmpl %eax, %ecx\n";
+            asm += "movl $0, %eax\n";
+            asm += "setl %al\n";
+          }
+          &ast::BinaryOp::LessEqual => {
+            asm += "cmpl %eax, %ecx\n";
+            asm += "movl $0, %eax\n";
+            asm += "setle %al\n";
+          }
+          &ast::BinaryOp::Greater => {
+            asm += "cmpl %eax, %ecx\n";
+            asm += "movl $0, %eax\n";
+            asm += "setg %al\n";
+          }
+          &ast::BinaryOp::GreaterEqual => {
+            asm += "cmpl %eax, %ecx\n";
+            asm += "movl $0, %eax\n";
+            asm += "setge %al\n";
+          }
+          _ => {
+            asm += "\n"; // TODO: && and ||
           }
         }
         asm
