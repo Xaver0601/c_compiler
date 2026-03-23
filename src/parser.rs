@@ -2,13 +2,13 @@ use crate::ast::*;
 use crate::lexer::{Keyword, Token};
 
 // Converts raw tokens into an AST
-pub struct Parser<'a> {
-  tokens: &'a Vec<Token>,
+pub struct Parser {
+  tokens: Vec<Token>,
   current: usize,
 }
 
-impl<'a> Parser<'a> {
-  pub fn new(tokens: &'a Vec<Token>) -> Self {
+impl Parser {
+  pub fn new(tokens: Vec<Token>) -> Self {
     Parser { tokens, current: 0 }
   }
 

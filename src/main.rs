@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use std::fs;
 use std::io::Write;
 use std::process::Command;
 mod ast;
@@ -13,16 +14,17 @@ fn main() {
   if args.len() < 2 {
     panic!("Please provide at least one argument.");
   }
-  let source_path = String::from(&args[1]);
   // let source_path = String::from("temp/temp.c");
+  let source_path = String::from(&args[1]);
+  let content = fs::read_to_string(&source_path).expect("Could not read file");
 
   // Read tokens
   let mut lexer = lexer::Lexer::default();
-  lexer.lex(&source_path);
+  lexer.lex(content);
   // lexer.print_tokens();
   // lexer.print_tokens_literal();
 
-  let mut parser = parser::Parser::new(&lexer.tokens);
+  let mut parser = parser::Parser::new(lexer.tokens); // Take ownership of tokens
   let mut program = parser.parse_program(&source_path);
   program.build_pretty_ast();
   // program.print();

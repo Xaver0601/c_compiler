@@ -1,6 +1,5 @@
 use regex::Regex;
 use std::fmt;
-use std::fs;
 
 // Literal 'raw' tokens
 pub enum Token {
@@ -69,8 +68,7 @@ impl Lexer {
     }
   }
 
-  pub fn lex(&mut self, path: &String) {
-    let content = fs::read_to_string(path).expect("Could not read file");
+  pub fn lex(&mut self, content: String) {
     self.tokens = Vec::new();
     self.tokens_literal = Vec::new();
     // println!("{content}");
