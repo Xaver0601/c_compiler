@@ -54,7 +54,7 @@ impl fmt::Display for Token {
 // Reads an input file and extracts tokens
 pub struct Lexer {
   pub tokens: Vec<Token>,
-  pub tokens_string: Vec<String>,
+  pub tokens_literal: Vec<String>,
 }
 
 impl Lexer {
@@ -63,57 +63,65 @@ impl Lexer {
       println!("{}", tok);
     }
   }
-  pub fn print_tokens_string(&self) {
-    for tok in &self.tokens_string {
+  pub fn print_tokens_literal(&self) {
+    for tok in &self.tokens_literal {
       println!("{}", tok);
     }
   }
 
   pub fn lex(&mut self, path: &String) {
     let content = fs::read_to_string(path).expect("Could not read file");
-    // println!("{content}");
-    let re = Regex::new(
-    r"(\{)|(\})|(\()|(\))|(\;)|(int)\b|(return)\b|([a-zA-Z]\w*)|([0-9]+)|(\-)|(\~)|(\!)|(\+)|(\*)|(\/)",
-  )
-  .unwrap();
     self.tokens = Vec::new();
-    self.tokens_string = Vec::new();
+    self.tokens_literal = Vec::new();
+    // println!("{content}");
+    // (?x) at beginning to ignore whitespaces in regex pattern (good for formatting)
+    let re = Regex::new(
+      r"(?x)
+    (?P<brace_open>\{)    |
+    (?P<brace_close>\})   |
+    (?P<paren_open>\()    |
+    (?P<paren_close>\))   |
+    (?P<semicolon>\;)     |
+    (?P<kw_int>int)\b     |
+    (?P<kw_return>return)\b |
+    (?P<ident>[a-zA-Z]\w*) |
+    (?P<lit_int>[0-9]+)   |
+    (?P<minus>\-)         |
+    (?P<tilde>\~)         |
+    (?P<excl>\!)          |
+    (?P<plus>\+)          |
+    (?P<star>\*)          |
+    (?P<slash>\/)",
+    )
+    .unwrap();
+
     for cap in re.captures_iter(&content) {
-      self.tokens_string.push(String::from(&cap[0]));
-      let token = if cap.get(1).is_some() {
-        Token::OpenBrace
-      } else if cap.get(2).is_some() {
-        Token::CloseBrace
-      } else if cap.get(3).is_some() {
-        Token::OpenParen
-      } else if cap.get(4).is_some() {
-        Token::CloseParen
-      } else if cap.get(5).is_some() {
-        Token::Semicolon
-      } else if cap.get(6).is_some() {
-        Token::Keyword(Keyword::INT)
-      } else if cap.get(7).is_some() {
-        Token::Keyword(Keyword::RETURN)
-      } else if let Some(m) = cap.get(8) {
-        Token::Identifier(m.as_str().to_string())
-      } else if let Some(m) = cap.get(9) {
-        Token::LiteralInt(m.as_str().parse().expect("Not a number"))
-      } else if cap.get(10).is_some() {
-        Token::Minus
-      } else if cap.get(11).is_some() {
-        Token::Tilde
-      } else if cap.get(12).is_some() {
-        Token::Exclamation
-      } else if cap.get(13).is_some() {
-        Token::Plus
-      } else if cap.get(14).is_some() {
-        Token::Star
-      } else if cap.get(15).is_some() {
-        Token::Slash
-      } else {
-        continue;
-      };
-      self.tokens.push(token);
+      let matched_text = &cap[0];
+      self.tokens_literal.push(String::from(matched_text));
+
+      let mut group_names = re.capture_names().flatten(); // Iterator for all group names
+      let group_name = group_names.find(|name| cap.name(name).is_some()); // Go over iterator and check for each element if it matches the group name found in cap
+      if let Some(found_name) = group_name {
+        let token = match found_name {
+          "brace_open" => Token::OpenBrace,
+          "brace_close" => Token::CloseBrace,
+          "paren_open" => Token::OpenParen,
+          "paren_close" => Token::CloseParen,
+          "semicolon" => Token::Semicolon,
+          "kw_int" => Token::Keyword(Keyword::INT),
+          "kw_return" => Token::Keyword(Keyword::RETURN),
+          "ident" => Token::Identifier(cap[0].to_string()),
+          "lit_int" => Token::LiteralInt(cap[0].parse().expect("Not a number")),
+          "minus" => Token::Minus,
+          "tilde" => Token::Tilde,
+          "exl" => Token::Exclamation,
+          "plus" => Token::Plus,
+          "star" => Token::Star,
+          "slash" => Token::Slash,
+          _ => panic!("Unknown token name: {}", found_name),
+        };
+        self.tokens.push(token);
+      }
     }
   }
 }

@@ -14,14 +14,18 @@ impl Program {
       pretty_ast: String::new(),
     }
   }
-  pub fn print(&mut self) {
+
+  pub fn print(&self) {
+    println!("{}", self.pretty_ast);
+  }
+
+  pub fn build_pretty_ast(&mut self) {
     self
       .pretty_ast
       .push_str(&format!("PROGRAM {}\n", self.name));
     for fun in &self.child_functions {
       self.pretty_ast.push_str(&fun.print());
     }
-    println!("{}", self.pretty_ast);
   }
 }
 

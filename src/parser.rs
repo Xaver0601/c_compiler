@@ -54,8 +54,8 @@ impl<'a> Parser<'a> {
 
   // Initialize recursive parsing of program
   // <program> ::= <function>
-  pub fn parse_program(&mut self) -> Program {
-    let mut prog = Program::new(String::from("test.c"));
+  pub fn parse_program(&mut self, path: &String) -> Program {
+    let mut prog = Program::new(String::from(path));
     while self.peek().is_some() {
       prog.child_functions.push(self.parse_function());
     }

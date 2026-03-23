@@ -9,24 +9,30 @@ mod lexer;
 mod parser;
 
 fn main() {
-  let source_path = String::from("temp/temp.c");
-  let assembly_path = String::from("temp/temp.s");
+  let args: Vec<String> = std::env::args().collect();
+  if args.len() < 2 {
+    panic!("Please provide at least one argument.");
+  }
+  let source_path = String::from(&args[1]);
+  // let source_path = String::from("temp/temp.c");
 
   // Read tokens
   let mut lexer = lexer::Lexer::default();
   lexer.lex(&source_path);
   // lexer.print_tokens();
-  // lexer.print_tokens_string();
+  // lexer.print_tokens_literal();
 
   let mut parser = parser::Parser::new(&lexer.tokens);
-  let mut program = parser.parse_program();
-  program.print();
+  let mut program = parser.parse_program(&source_path);
+  program.build_pretty_ast();
+  // program.print();
 
   let generator = generator::Generator { ast: program };
   let code = generator.generate_program();
   // println!("{}", code); // String to string literal: let literal = &String[..]
 
   // Write assembly to file
+  let assembly_path = String::from("temp/temp.s");
   let mut file = std::fs::File::create(&assembly_path).unwrap();
   file.write_all(code.as_bytes()).unwrap();
 
