@@ -4,10 +4,10 @@
 use std::fs;
 use std::io::Write;
 use std::process::Command;
-mod ast;
-mod generator;
-mod lexer;
-mod parser;
+
+use compiler::generator;
+use compiler::lexer;
+use compiler::parser;
 
 fn main() {
   let args: Vec<String> = std::env::args().collect();

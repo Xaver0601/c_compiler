@@ -87,7 +87,7 @@ impl Parser {
     while !matches!(self.peek(), Some(Token::CloseBrace)) {
       statements.push(self.parse_statement());
       // If the last statement was a 'return' the function ends
-      if matches!(statements.last(), Some(Statement::Return(x))) {
+      if matches!(statements.last(), Some(Statement::Return(_x))) {
         break;
       }
     }
@@ -144,17 +144,11 @@ impl Parser {
   fn parse_factor(&mut self) -> Expr {
     // 1. Try to extract the UnaryOp if the next token is one.
     // "Check if next token is a UnaryOp, if so, pull the value out of it, name that value op and execute the code in the curly brackets
-    // If op is none skip this whole block"
-    if let Some(op) = match self.peek() {
-      Some(Token::Minus) => Some(UnaryOp::Negate),
-      Some(Token::Tilde) => Some(UnaryOp::BitwiseNot),
-      Some(Token::Exclamation) => Some(UnaryOp::LogicalNot),
-      _ => None,
-    } {
+    if let Some(op) = self.peek_unary_op() {
       self.advance();
       let operand = self.parse_factor();
       return Expr::UnOp(op, Box::new(operand));
-    } else if let Some(op) = match self.peek() {
+    } else if let Some(_op) = match self.peek() {
       // 2. else check if a parenthesis opens
       Some(Token::OpenParen) => Some(Token::OpenParen),
       _ => None,

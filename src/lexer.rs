@@ -14,9 +14,9 @@ pub enum Token {
   Plus,        // +
   Star,        // *
   Slash,       // /
-  Keyword(Keyword),
+  Keyword(Keyword), // int, return
   LiteralInt(i32),
-  Identifier(String),
+  Identifier(String), // abcDEF
 }
 
 #[derive(Clone, Copy, Default, PartialEq)]
