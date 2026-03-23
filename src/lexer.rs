@@ -3,17 +3,17 @@ use std::fmt;
 
 // Literal 'raw' tokens
 pub enum Token {
-  OpenBrace,   // {
-  CloseBrace,  // }
-  OpenParen,   // (
-  CloseParen,  // )
-  Semicolon,   // ;
-  Minus,       // -
-  Tilde,       // ~
-  Exclamation, // !
-  Plus,        // +
-  Star,        // *
-  Slash,       // /
+  OpenBrace,        // {
+  CloseBrace,       // }
+  OpenParen,        // (
+  CloseParen,       // )
+  Semicolon,        // ;
+  Minus,            // -
+  Tilde,            // ~
+  Exclamation,      // !
+  Plus,             // +
+  Star,             // *
+  Slash,            // /
   Keyword(Keyword), // int, return
   LiteralInt(i32),
   Identifier(String), // abcDEF
@@ -112,7 +112,7 @@ impl Lexer {
           "lit_int" => Token::LiteralInt(cap[0].parse().expect("Not a number")),
           "minus" => Token::Minus,
           "tilde" => Token::Tilde,
-          "exl" => Token::Exclamation,
+          "excl" => Token::Exclamation,
           "plus" => Token::Plus,
           "star" => Token::Star,
           "slash" => Token::Slash,
