@@ -3,41 +3,42 @@ use crate::ast;
 // Converts an AST program into assembly
 pub struct Generator {
   pub ast: ast::Program,
+  pub jump_counter: i32,
 }
 
 impl Generator {
-  pub fn generate_program(&self) -> String {
+  pub fn generate_program(&mut self) -> String {
     let mut assembly = String::new();
     for fun in &self.ast.child_functions {
       assembly += &format!(".globl {name}\n{name}:\n", name = fun.name);
-      assembly += &format!("{}", Self::generate_statement(&fun));
+      assembly += &format!("{}", Self::generate_statement(&mut self.jump_counter, fun));
     }
     assembly += "ret\n.section .note.GNU-stack,\"\",@progbits\n";
     assembly
   }
 
-  fn generate_statement(fun: &ast::Function) -> String {
+  fn generate_statement(jump_counter: &mut i32, fun: &ast::Function) -> String {
     let mut stmt = String::new();
     for stm in &fun.child_statements {
       match stm {
         ast::Statement::Return(x) => {
-          stmt += &Self::generate_expression(x);
+          stmt += &Self::generate_expression(jump_counter, x);
           // stmt += "movl %eax, %eax\n";
         }
         ast::Statement::Expression(x) => {
-          stmt += &Self::generate_expression(x);
+          stmt += &Self::generate_expression(jump_counter, x);
         }
       }
     }
     stmt
   }
 
-  fn generate_expression(expr: &ast::Expr) -> String {
+  fn generate_expression(jump_counter: &mut i32, expr: &ast::Expr) -> String {
     match expr {
       ast::Expr::LiteralInt(val) => format!("movl ${}, %eax\n", val),
       ast::Expr::UnOp(op, operand) => {
         let mut asm = String::new();
-        asm += &Self::generate_expression(operand);
+        asm += &Self::generate_expression(jump_counter, operand);
         match op {
           ast::UnaryOp::Negate => {
             asm += "negl %eax\n";
@@ -55,9 +56,9 @@ impl Generator {
       }
       ast::Expr::BinOp(op, operand1, operand2) => {
         let mut asm = String::new();
-        asm += &Self::generate_expression(operand1);
+        asm += &Self::generate_expression(jump_counter, operand1);
         asm += "push %rax\n";
-        asm += &Self::generate_expression(operand2); // 2nd operand in eax
+        asm += &Self::generate_expression(jump_counter, operand2); // 2nd operand in eax
         asm += "pop %rcx\n"; // 1st operand in ecx
         match op {
           &ast::BinaryOp::Add => {
@@ -102,8 +103,29 @@ impl Generator {
             asm += "movl $0, %eax\n";
             asm += "setge %al\n";
           }
-          _ => {
-            asm += "\n"; // TODO: && and ||
+          &ast::BinaryOp::Or => {
+            asm += "cmpl $0, %ecx\n"; // If 1st operand is zero set ZF flag
+            asm += &format!("je _clause2_{}\n", jump_counter); // If e1 was zero, check e2
+            asm += "movl $1, %eax\n"; // If 1st operand is not zero we already know that e1 || e2 will evaluate to 1 (short-circuiting)
+            asm += &format!("jmp _end_{}\n", jump_counter); // Return 1 and skip e2
+            asm += &format!("_clause2_{}:\n", jump_counter);
+            asm += "cmpl $0, %eax\n"; // Check if e2 is zero
+            asm += "movl $0, %eax\n";
+            asm += "setne %al\n"; // If it wasn't, return 1
+            asm += &format!("_end_{}:\n", jump_counter);
+            *jump_counter += 1;
+          }
+          &ast::BinaryOp::And => {
+            asm += "cmpl $0, %ecx\n"; // If 1st operand is zero set ZF flag
+            asm += &format!("jne _clause2_{}\n", jump_counter); // If e1 was not zero, check e2
+            asm += "movl $0, %eax\n"; // If 1st operand is zero we already know that e1 && e2 will evaluate to 0 (short-circuiting)
+            asm += &format!("jmp _end_{}\n", jump_counter); // Return 0 and skip e2
+            asm += &format!("_clause2_{}:\n", jump_counter);
+            asm += "cmpl $0, %eax\n"; // Check if e2 is zero
+            asm += "movl $0, %eax\n";
+            asm += "setne %al\n"; // If it wasn't, return 1
+            asm += &format!("_end_{}:\n", jump_counter);
+            *jump_counter += 1;
           }
         }
         asm

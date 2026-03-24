@@ -1,11 +1,15 @@
 use std::fs;
 use std::process::Command;
 
+// Run with 'cargo test -- --nocapture' to also print warnings
+
 // End-To-End test if return value is correct.
 #[test]
 fn test_valid_programs_e2e() {
   let valid_dir = "tests/fixtures/valid";
   let subdirs = ["format", "unary", "binary"];
+  let mut skipped_files = Vec::new();
+
   for dir in subdirs {
     let set_dir = valid_dir.to_owned() + "/" + dir;
 
@@ -45,7 +49,15 @@ fn test_valid_programs_e2e() {
           "Assertion failed: {:?}", // ':?' uses Debug trait instead of Display trait
           path
         );
+      } else {
+        skipped_files.push(path);
       }
+    }
+  }
+  if !skipped_files.is_empty() {  // TODO: print this warning at the very end of all tests
+    eprintln!("\nWarning: The following non '.c' files were skipped:");
+    for skipped in skipped_files {
+      eprintln!("  - {}", skipped.display());
     }
   }
 }
@@ -55,6 +67,8 @@ fn test_valid_programs_e2e() {
 fn test_invalid_programs_e2e() {
   let invalid_dir = "tests/fixtures/invalid";
   let subdirs = ["format", "unary", "binary"];
+  let mut skipped_files = Vec::new();
+
   for dir in subdirs {
     let set_dir = invalid_dir.to_owned() + "/" + dir;
 
@@ -77,7 +91,15 @@ fn test_invalid_programs_e2e() {
           "Invalid file got compiled {:?}",
           path
         );
+      } else {
+        skipped_files.push(path);
       }
+    }
+  }
+  if !skipped_files.is_empty() {
+    eprintln!("\nWarning: The following non '.c' files were skipped:");
+    for skipped in skipped_files {
+      eprintln!("  - {}", skipped.display());
     }
   }
 }

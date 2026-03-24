@@ -31,7 +31,7 @@ fn main() {
   program.build_pretty_ast();
   // program.print();
 
-  let generator = generator::Generator { ast: program };
+  let mut generator = generator::Generator { ast: program, jump_counter: 0 };
   let code = generator.generate_program();
   // println!("{}", code); // String to string literal: let literal = &String[..]
 

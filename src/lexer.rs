@@ -105,6 +105,7 @@ impl Lexer {
     (?P<lit_int>[0-9]+)   |
     (?P<minus>\-)         |
     (?P<tilde>\~)         |
+    (?P<unequal>!\=)      |
     (?P<excl>\!)          |
     (?P<plus>\+)          |
     (?P<star>\*)          |
@@ -112,7 +113,6 @@ impl Lexer {
     (?P<and>\&\&)         |
     (?P<or>\|\|)          |
     (?P<equal>\=\=)       |
-    (?P<unequal>\!\=)     |
     (?P<less_equal><\=)  |
     (?P<less><)          |
     (?P<greater_equal>>\=) |
