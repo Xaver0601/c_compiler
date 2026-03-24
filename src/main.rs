@@ -3,6 +3,7 @@
 
 use std::fs;
 use std::io::Write;
+#[cfg(debug_assertions)]
 use std::process::Command;
 
 use compiler::generator;
@@ -39,17 +40,20 @@ fn main() {
   let mut file = std::fs::File::create(&assembly_path).unwrap();
   file.write_all(code.as_bytes()).unwrap();
 
-  let status = Command::new("gcc")
-    .arg(assembly_path) // Add a single argument
-    .args(["-o", "temp/temp.out"]) // Add multiple arguments at once
-    .status() // Execute and wait for finish
-    .expect("Failed to execute gcc");
-  if !status.success() {
-    panic!("Compilation failed with status: {}", status);
-  }
+  #[cfg(debug_assertions)]
+  {
+    let status = Command::new("gcc")
+      .arg(assembly_path) // Add a single argument
+      .args(["-o", "temp/temp.out"]) // Add multiple arguments at once
+      .status() // Execute and wait for finish
+      .expect("Failed to execute gcc");
+    if !status.success() {
+      panic!("Compilation failed with status: {}", status);
+    }
 
-  let status = Command::new("./temp/temp.out")
-    .status()
-    .expect("Failed to execute binary");
-  println!("Execution exit with status: {}", status);
+    let status = Command::new("./temp/temp.out")
+      .status()
+      .expect("Failed to execute binary");
+    println!("Execution exit with status: {}", status);
+  }
 }
