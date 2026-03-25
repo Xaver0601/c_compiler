@@ -150,7 +150,8 @@ impl Parser {
     }
   }
 
-  // <statement> ::= "return" <exp> ";"
+  // TODO: maybe support just expressions as this is allowed in C: "1 + 2;"
+  // <statement> ::= "return" <exp> ";" | "int" <id> [ = <exp> ] ";"
   fn parse_statement(&mut self) -> Statement {
     let token = self.advance().clone();
     match token {
@@ -190,6 +191,10 @@ impl Parser {
       _ => panic!("Unsupported keyword"),
     };
   }
+
+  // TODO: add a new layer of precedence for assignment
+  // <exp> ::= <id> "=" <exp> | <logical-or-exp>
+  // <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }  // this is currently parse_expression()
 
   // <exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
   fn parse_expression(&mut self) -> Expr {
@@ -256,6 +261,9 @@ impl Parser {
     }
     left
   }
+
+  // TODO: implement this grammar for variable names:
+  // <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
 
   // <factor> ::= <unary_op> <factor> | "(" <exp> ")" | <int>
   fn parse_factor(&mut self) -> Expr {

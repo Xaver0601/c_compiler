@@ -23,6 +23,7 @@ pub enum Expr {
   UnOp(UnaryOp, Box<Expr>),
   BinOp(BinaryOp, Box<Expr>, Box<Expr>),
   Assign(String, Box<Expr>),
+  // Var(String), // TODO: Maybe this is needed
 }
 
 // 'Semantic' tokens derived from raw tokens depending on context
