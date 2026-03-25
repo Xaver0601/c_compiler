@@ -17,6 +17,23 @@ impl Parser {
     self.tokens.get(self.current)
   }
 
+  // Throw an error if next token is not the expected token, consumes next token
+  // A 'assert!(match!(exp_token, found_token.unwrap()))' will not work because found_token is potentially None
+  fn expect(&mut self, exp_token: Token, error: &str) {
+    match self.advance() {
+      Some(found) if found == &exp_token => {}
+      Some(other) => {
+        panic!("Expected '{}' {}, found: {}", exp_token, error, other)
+      }
+      None => {
+        panic!(
+          "Expected '{}' {}, found: end of file (EOF)",
+          exp_token, error
+        )
+      }
+    }
+  }
+
   // Check if next token is a unary operator (-, ~, !)
   fn peek_unary_op(&self) -> Option<UnaryOp> {
     match self.peek() {
@@ -103,10 +120,7 @@ impl Parser {
   // <function> ::= "int" <id> "(" ")" "{" <statement> "}"
   fn parse_function(&mut self) -> Function {
     // Function has to start with 'int'
-    match self.advance() {
-      Some(Token::Keyword(Keyword::INT)) => {}
-      _ => panic!("Expected INT keyword"),
-    }
+    self.expect(Token::Keyword(Keyword::INT), "for function type");
 
     // Expect function name
     let name = match self.advance() {
@@ -114,11 +128,9 @@ impl Parser {
       _ => panic!("Expected function name"),
     };
 
-    // Expect '()'
-    assert!(matches!(self.advance(), Some(Token::OpenParen)));
-    assert!(matches!(self.advance(), Some(Token::CloseParen)));
-    // Expect '{'
-    assert!(matches!(self.advance(), Some(Token::OpenBrace)));
+    self.expect(Token::OpenParen, "for function parameters");
+    self.expect(Token::CloseParen, "for function parameters");
+    self.expect(Token::OpenBrace, "for function start");
 
     // Parse the inner statements
     let mut statements = Vec::new();
@@ -130,8 +142,7 @@ impl Parser {
       }
     }
 
-    // Expect '}'
-    assert!(matches!(self.advance(), Some(Token::CloseBrace)));
+    self.expect(Token::CloseBrace, "for function end");
 
     Function {
       name,
@@ -141,15 +152,39 @@ impl Parser {
 
   // <statement> ::= "return" <exp> ";"
   fn parse_statement(&mut self) -> Statement {
-    match self.advance() {
+    let token = self.advance().clone();
+    match token {
+      // Return statement
       Some(Token::Keyword(Keyword::RETURN)) => {
         let expr = self.parse_expression();
+        self.expect(Token::Semicolon, "after return statement");
+        return Statement::Return(expr);
+      }
+      // Variable declaration
+      Some(Token::Keyword(Keyword::INT)) => {
+        let var_name = match self.advance() {
+          Some(Token::Identifier(n)) => n.clone(),
+          Some(other) => panic!("Expected variable name (string), found: {}", other),
+          None => panic!("Expected variable name (string) in declaration, found EOF (End of File)"),
+        };
         match self.advance() {
-          Some(Token::Semicolon) => {} // All good, do nothing
+          Some(Token::Semicolon) => return Statement::Declare(var_name, None), // just declaration
+          Some(Token::Assign) => {
+            // Declaration with initialization
+            let expr = self.parse_expression();
+            self.expect(Token::Semicolon, "after variable initialization");
+            return Statement::Declare(var_name, Some(expr));
+          }
           Some(other) => panic!("Expected ';' after statement, found: {}", other),
           None => panic!("Expected ';' after statement, found EOF (End of File)"),
         }
-        return Statement::Return(expr);
+      }
+      Some(Token::Identifier(var_name)) => {
+        let v_name = var_name.clone();
+        self.expect(Token::Assign, "in variable assignment");
+        let expr = self.parse_expression();
+        self.expect(Token::Semicolon, "after variable assignment");
+        return Statement::Declare(v_name, Some(expr)); // Assignment
       }
       Some(other_token) => panic!("Unsupported statement starting with token: {}", other_token),
       _ => panic!("Unsupported keyword"),
@@ -237,12 +272,13 @@ impl Parser {
     } {
       self.advance();
       let node = self.parse_expression(); // Recurse back to top
+      // Check for closing parenthesis
       if !matches!(self.advance(), Some(Token::CloseParen)) {
-        // Check for closing parenthesis
         panic!("Parenthesis not closed!");
       }
       return node;
     } else {
+      // TODO: this probably needs to be updated for variable declaration
       // 3. Probably just LiteralInt left, but keep match for now
       match self.advance() {
         Some(Token::LiteralInt(val)) => return Expr::LiteralInt(*val),

@@ -28,6 +28,16 @@ impl Generator {
         ast::Statement::Expression(x) => {
           stmt += &Self::generate_expression(jump_counter, x);
         }
+        ast::Statement::Declare(_var, x) => {
+          // TODO: implement assembly
+          if x.is_some() {
+            println!("Local variables not implemented yet")
+            // stmt += &Self::generate_expression(jump_counter, x.as_ref().unwrap());
+          } else {
+            println!("Local variables not implemented yet");
+            // stmt += &Self::generate_expression(jump_counter, x.as_ref().unwrap());
+          }
+        }
       }
     }
     stmt
@@ -130,6 +140,8 @@ impl Generator {
         }
         asm
       }
+      // TODO: implement assembly
+      ast::Expr::Assign(_var_name, _operand) => format!("movl $0, %eax\n"),
     }
   }
 }

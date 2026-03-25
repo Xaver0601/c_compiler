@@ -47,9 +47,9 @@ impl Function {
 }
 
 pub enum Statement {
-  // DeclareFunction(Keyword, Token),
-  Return(Expr),     // return x
-  Expression(Expr), // x + 5, !x
+  Return(Expr),                  // return x
+  Expression(Expr),              // x + 5, !x
+  Declare(String, Option<Expr>), // int a (= 5);
 }
 
 impl Statement {
@@ -60,7 +60,15 @@ impl Statement {
         stmt_str.push_str(&format!("  EXPR[{}]", x.print()));
       }
       Statement::Return(x) => {
-        stmt_str.push_str(&format!("  RETURN EXPR[{}] ", x.print()));
+        stmt_str.push_str(&format!("  RETURN EXPR[{}]\n", x.print()));
+      }
+      Statement::Declare(var, x) => {
+        let temp_str = &mut format!("  DECLARE VAR[{}]", var);
+        if x.is_some() {
+          temp_str.push_str(&format!(" = EXPR[{}]", x.as_ref().unwrap().print()));
+        }
+        temp_str.push('\n');
+        stmt_str.push_str(temp_str);
       }
     }
     stmt_str
@@ -96,6 +104,7 @@ pub enum Expr {
   LiteralInt(i32),
   UnOp(UnaryOp, Box<Expr>),
   BinOp(BinaryOp, Box<Expr>, Box<Expr>),
+  Assign(String, Box<Expr>),
 }
 
 impl Expr {
@@ -126,6 +135,9 @@ impl Expr {
           BinaryOp::Equal => expr_str.push_str(&format!(" == {})", &operand2.print())),
           BinaryOp::Unequal => expr_str.push_str(&format!(" != {})", &operand2.print())),
         }
+      }
+      Expr::Assign(var_name, operand) => {
+        expr_str.push_str(&format!("{} = {}", var_name, &operand.print()));
       }
     }
     expr_str

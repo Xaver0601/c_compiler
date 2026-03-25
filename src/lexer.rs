@@ -2,6 +2,7 @@ use regex::Regex;
 use std::fmt;
 
 // Literal 'raw' tokens
+#[derive(PartialEq)]
 pub enum Token {
   OpenBrace,        // {
   CloseBrace,       // }
@@ -22,6 +23,7 @@ pub enum Token {
   LessEqual,        // <=
   Greater,          // >
   GreaterEqual,     // >=
+  Assign,           // =
   Keyword(Keyword), // int, return
   LiteralInt(i32),
   Identifier(String), // abcDEF
@@ -56,6 +58,7 @@ impl fmt::Display for Token {
       Token::LessEqual => write!(f, "<="),
       Token::Greater => write!(f, ">"),
       Token::GreaterEqual => write!(f, ">="),
+      Token::Assign => write!(f, "="),
       Token::Keyword(Keyword::INT) => write!(f, "KEYWORD_INT"),
       Token::Keyword(Keyword::RETURN) => write!(f, "KEYWORD_RETURN"),
       Token::Identifier(name) => write!(f, "ID({})", name),
@@ -113,6 +116,7 @@ impl Lexer {
     (?P<and>\&\&)         |
     (?P<or>\|\|)          |
     (?P<equal>\=\=)       |
+    (?P<assign>\=)       |
     (?P<less_equal><\=)  |
     (?P<less><)          |
     (?P<greater_equal>>\=) |
@@ -152,6 +156,7 @@ impl Lexer {
           "less_equal" => Token::LessEqual,
           "greater" => Token::Greater,
           "greater_equal" => Token::GreaterEqual,
+          "assign" => Token::Assign,
           _ => panic!("Unknown token name: {}", found_name),
         };
         self.tokens.push(token);
