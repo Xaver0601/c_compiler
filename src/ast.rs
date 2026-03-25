@@ -6,44 +6,10 @@ pub struct Program {
   pub pretty_ast: String,
 }
 
-impl Program {
-  pub fn new(name: String) -> Self {
-    Program {
-      name: name,
-      child_functions: vec![],
-      pretty_ast: String::new(),
-    }
-  }
-
-  pub fn print(&self) {
-    println!("{}", self.pretty_ast);
-  }
-
-  pub fn build_pretty_ast(&mut self) {
-    self
-      .pretty_ast
-      .push_str(&format!("PROGRAM {}\n", self.name));
-    for fun in &self.child_functions {
-      self.pretty_ast.push_str(&fun.print());
-    }
-  }
-}
-
 // #[derive(Default)]
 pub struct Function {
   pub name: String,
   pub child_statements: Vec<Statement>,
-}
-
-impl Function {
-  pub fn print(&self) -> String {
-    let mut func_str = String::new();
-    func_str.push_str(&format!("FUNC {}:\n", self.name));
-    for stmt in &self.child_statements {
-      func_str.push_str(&stmt.print());
-    }
-    func_str
-  }
 }
 
 pub enum Statement {
@@ -52,27 +18,11 @@ pub enum Statement {
   Declare(String, Option<Expr>), // int a (= 5);
 }
 
-impl Statement {
-  pub fn print(&self) -> String {
-    let mut stmt_str = String::new();
-    match self {
-      Statement::Expression(x) => {
-        stmt_str.push_str(&format!("  EXPR[{}]", x.print()));
-      }
-      Statement::Return(x) => {
-        stmt_str.push_str(&format!("  RETURN EXPR[{}]\n", x.print()));
-      }
-      Statement::Declare(var, x) => {
-        let temp_str = &mut format!("  DECLARE VAR[{}]", var);
-        if x.is_some() {
-          temp_str.push_str(&format!(" = EXPR[{}]", x.as_ref().unwrap().print()));
-        }
-        temp_str.push('\n');
-        stmt_str.push_str(temp_str);
-      }
-    }
-    stmt_str
-  }
+pub enum Expr {
+  LiteralInt(i32),
+  UnOp(UnaryOp, Box<Expr>),
+  BinOp(BinaryOp, Box<Expr>, Box<Expr>),
+  Assign(String, Box<Expr>),
 }
 
 // 'Semantic' tokens derived from raw tokens depending on context
@@ -100,11 +50,61 @@ pub enum BinaryOp {
   Or,           // ||
 }
 
-pub enum Expr {
-  LiteralInt(i32),
-  UnOp(UnaryOp, Box<Expr>),
-  BinOp(BinaryOp, Box<Expr>, Box<Expr>),
-  Assign(String, Box<Expr>),
+impl Program {
+  pub fn new(name: String) -> Self {
+    Program {
+      name: name,
+      child_functions: vec![],
+      pretty_ast: String::new(),
+    }
+  }
+
+  pub fn print(&self) {
+    println!("{}", self.pretty_ast);
+  }
+
+  pub fn build_pretty_ast(&mut self) {
+    self
+      .pretty_ast
+      .push_str(&format!("PROGRAM {}\n", self.name));
+    for fun in &self.child_functions {
+      self.pretty_ast.push_str(&fun.print());
+    }
+  }
+}
+
+impl Function {
+  pub fn print(&self) -> String {
+    let mut func_str = String::new();
+    func_str.push_str(&format!("FUNC {}:\n", self.name));
+    for stmt in &self.child_statements {
+      func_str.push_str(&stmt.print());
+    }
+    func_str
+  }
+}
+
+impl Statement {
+  pub fn print(&self) -> String {
+    let mut stmt_str = String::new();
+    match self {
+      Statement::Expression(x) => {
+        stmt_str.push_str(&format!("  EXPR[{}]", x.print()));
+      }
+      Statement::Return(x) => {
+        stmt_str.push_str(&format!("  RETURN EXPR[{}]\n", x.print()));
+      }
+      Statement::Declare(var, x) => {
+        let temp_str = &mut format!("  DECLARE VAR[{}]", var);
+        if x.is_some() {
+          temp_str.push_str(&format!(" = EXPR[{}]", x.as_ref().unwrap().print()));
+        }
+        temp_str.push('\n');
+        stmt_str.push_str(temp_str);
+      }
+    }
+    stmt_str
+  }
 }
 
 impl Expr {
