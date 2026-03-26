@@ -4,51 +4,78 @@ use crate::ast;
 pub struct Generator {
   pub ast: ast::Program,
   pub jump_counter: i32,
+  // pub var_map: std::collections::HashMap<String, i32>, // could maybe be used for global variables
+  pub stack_index: i32,
 }
 
 impl Generator {
   pub fn generate_program(&mut self) -> String {
     let mut assembly = String::new();
     for fun in &self.ast.child_functions {
-      assembly += &format!(".globl {name}\n{name}:\n", name = fun.name);
-      assembly += &format!("{}", Self::generate_statement(&mut self.jump_counter, fun));
+      assembly += &format!(".globl {name}\n{name}:\n", name = fun.name); // Function label
+      assembly += "push %rbp\nmov %rsp, %rbp\n"; // Function prologue
+      assembly += &format!(
+        "{}",
+        Self::generate_statement(
+          fun,
+          &mut self.jump_counter,
+          std::collections::HashMap::new(), // Each function (scope) gets a blank variable hashmap
+          &mut self.stack_index
+        )
+      );
+      assembly += "mov %rbp, %rsp\npop %rbp\nret\n"; // Function epilogue
     }
-    assembly += "ret\n.section .note.GNU-stack,\"\",@progbits\n";
+    assembly += ".section .note.GNU-stack,\"\",@progbits\n"; // Metadata so gcc doesn't throw a warning
     assembly
   }
 
-  fn generate_statement(jump_counter: &mut i32, fun: &ast::Function) -> String {
+  fn generate_statement(
+    fun: &ast::Function,
+    jump_counter: &mut i32,
+    mut var_map: std::collections::HashMap<String, i32>,
+    stack_index: &mut i32,
+  ) -> String {
     let mut stmt = String::new();
     for stm in &fun.child_statements {
       match stm {
         ast::Statement::Return(x) => {
-          stmt += &Self::generate_expression(jump_counter, x);
+          stmt += &Self::generate_expression(x, jump_counter, &var_map);
           // stmt += "movl %eax, %eax\n";
         }
         ast::Statement::Expression(x) => {
-          stmt += &Self::generate_expression(jump_counter, x);
+          stmt += &Self::generate_expression(x, jump_counter, &var_map);
         }
-        ast::Statement::Declare(_var, x) => {
+        ast::Statement::Declare(var, x) => {
+          if var_map.contains_key(var) {
+            panic!("Variable '{}' has already been declared", var);
+          }
           // TODO: implement assembly
           if x.is_some() {
-            println!("Local variables not implemented yet")
-            // stmt += &Self::generate_expression(jump_counter, x.as_ref().unwrap());
+            stmt += &Self::generate_expression(x.as_ref().unwrap(), jump_counter, &var_map);
+            stmt += "push %rax\n"; // Push variable onto stack
           } else {
-            println!("Local variables not implemented yet");
-            // stmt += &Self::generate_expression(jump_counter, x.as_ref().unwrap());
+            stmt += "movl $0, %eax\n"; // Init 'int a;' as a = 0
+            stmt += "push %rax\n";
           }
+          var_map.insert(var.clone(), *stack_index);
+          *stack_index -= 8; // This will give each variable 8 bytes of space
+          // println!("Local variables not implemented yet");
         }
       }
     }
     stmt
   }
 
-  fn generate_expression(jump_counter: &mut i32, expr: &ast::Expr) -> String {
+  fn generate_expression(
+    expr: &ast::Expr,
+    jump_counter: &mut i32,
+    var_map: &std::collections::HashMap<String, i32>,
+  ) -> String {
     match expr {
       ast::Expr::LiteralInt(val) => format!("movl ${}, %eax\n", val),
       ast::Expr::UnOp(op, operand) => {
         let mut asm = String::new();
-        asm += &Self::generate_expression(jump_counter, operand);
+        asm += &Self::generate_expression(operand, jump_counter, var_map);
         match op {
           ast::UnaryOp::Negate => {
             asm += "negl %eax\n";
@@ -66,9 +93,9 @@ impl Generator {
       }
       ast::Expr::BinOp(op, operand1, operand2) => {
         let mut asm = String::new();
-        asm += &Self::generate_expression(jump_counter, operand1);
+        asm += &Self::generate_expression(operand1, jump_counter, var_map);
         asm += "push %rax\n";
-        asm += &Self::generate_expression(jump_counter, operand2); // 2nd operand in eax
+        asm += &Self::generate_expression(operand2, jump_counter, var_map); // 2nd operand in eax
         asm += "pop %rcx\n"; // 1st operand in ecx
         match op {
           &ast::BinaryOp::Add => {
@@ -141,8 +168,32 @@ impl Generator {
         asm
       }
       // TODO: implement assembly
-      ast::Expr::Assign(_var_name, _operand) => format!("movl $0, %eax\n"),
-      ast::Expr::Var(_var_name) => format!("movl $0, %eax\n"),
+      ast::Expr::Assign(var_name, operand) => {
+        let mut asm = String::new();
+        asm += &Self::generate_expression(operand, jump_counter, var_map);
+        let var_offset = var_map.get(var_name);
+        if var_offset.is_some() {
+          asm += &format!("movl %eax, {}(%rbp)\n", var_offset.unwrap());
+          asm
+        } else {
+          panic!(
+            "Assigning variable '{}' which has not been declared yet",
+            var_name
+          )
+        }
+      }
+      ast::Expr::Var(var_name) => {
+        let var_offset = var_map.get(var_name);
+        if var_offset.is_some() {
+          // TODO: This will put put the variables value as return value (e.g. when function has no return)
+          format!("movl {}(%rbp), %eax\n", var_offset.unwrap())
+        } else {
+          panic!(
+            "Assigning variable '{}' which has not been declared yet",
+            var_name
+          )
+        }
+      }
     }
   }
 }

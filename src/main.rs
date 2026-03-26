@@ -31,7 +31,12 @@ fn main() {
   program.build_pretty_ast();
   // program.print();
 
-  let mut generator = generator::Generator { ast: program, jump_counter: 0 };
+  let mut generator = generator::Generator {
+    ast: program,
+    jump_counter: 0,
+    // var_map: std::collections::HashMap::new(),
+    stack_index: -8,
+  };
   let code = generator.generate_program();
   // println!("{}", code); // String to string literal: let literal = &String[..]
 
