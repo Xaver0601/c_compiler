@@ -142,6 +142,7 @@ impl Generator {
       }
       // TODO: implement assembly
       ast::Expr::Assign(_var_name, _operand) => format!("movl $0, %eax\n"),
+      ast::Expr::Var(_var_name) => format!("movl $0, %eax\n"),
     }
   }
 }

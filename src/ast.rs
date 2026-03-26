@@ -23,7 +23,7 @@ pub enum Expr {
   UnOp(UnaryOp, Box<Expr>),
   BinOp(BinaryOp, Box<Expr>, Box<Expr>),
   Assign(String, Box<Expr>),
-  // Var(String), // TODO: Maybe this is needed
+  Var(String),
 }
 
 // 'Semantic' tokens derived from raw tokens depending on context
@@ -93,17 +93,17 @@ impl Statement {
         stmt_str.push_str(&format!("  EXPR[{}]", x.print()));
       }
       Statement::Return(x) => {
-        stmt_str.push_str(&format!("  RETURN EXPR[{}]\n", x.print()));
+        stmt_str.push_str(&format!("  RETURN EXPR[{}]", x.print()));
       }
       Statement::Declare(var, x) => {
         let temp_str = &mut format!("  DECLARE VAR[{}]", var);
         if x.is_some() {
           temp_str.push_str(&format!(" = EXPR[{}]", x.as_ref().unwrap().print()));
         }
-        temp_str.push('\n');
         stmt_str.push_str(temp_str);
       }
     }
+    stmt_str.push('\n');
     stmt_str
   }
 }
@@ -139,6 +139,9 @@ impl Expr {
       }
       Expr::Assign(var_name, operand) => {
         expr_str.push_str(&format!("{} = {}", var_name, &operand.print()));
+      }
+      Expr::Var(var_name) => {
+        expr_str.push_str(&format!("{}", var_name));
       }
     }
     expr_str

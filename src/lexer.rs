@@ -2,7 +2,7 @@ use regex::Regex;
 use std::fmt;
 
 // Literal 'raw' tokens
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum Token {
   OpenBrace,        // {
   CloseBrace,       // }

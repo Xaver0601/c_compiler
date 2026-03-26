@@ -150,19 +150,20 @@ impl Parser {
     }
   }
 
-  // TODO: maybe support just expressions as this is allowed in C: "1 + 2;"
-  // <statement> ::= "return" <exp> ";" | "int" <id> [ = <exp> ] ";"
+  // <statement> ::= "return" <exp> ";" | <exp> | "int" <id> [ = <exp> ] ";"
   fn parse_statement(&mut self) -> Statement {
-    let token = self.advance().clone();
+    let token = self.peek().cloned();
     match token {
       // Return statement
       Some(Token::Keyword(Keyword::RETURN)) => {
+        self.advance(); // consume 'return'
         let expr = self.parse_expression();
         self.expect(Token::Semicolon, "after return statement");
         return Statement::Return(expr);
       }
       // Variable declaration
       Some(Token::Keyword(Keyword::INT)) => {
+        self.advance(); // consume 'int'
         let var_name = match self.advance() {
           Some(Token::Identifier(n)) => n.clone(),
           Some(other) => panic!("Expected variable name (string), found: {}", other),
@@ -180,24 +181,32 @@ impl Parser {
           None => panic!("Expected ';' after statement, found EOF (End of File)"),
         }
       }
-      Some(Token::Identifier(var_name)) => {
-        let v_name = var_name.clone();
-        self.expect(Token::Assign, "in variable assignment");
+      // Variable initialization or standalone expression (e.g 2 + 2;)
+      Some(_other_token) => {
         let expr = self.parse_expression();
-        self.expect(Token::Semicolon, "after variable assignment");
-        return Statement::Declare(v_name, Some(expr)); // Assignment
+        self.expect(Token::Semicolon, "after expression statement");
+        Statement::Expression(expr)
       }
-      Some(other_token) => panic!("Unsupported statement starting with token: {}", other_token),
-      _ => panic!("Unsupported keyword"),
-    };
+      None => panic!("Expected statement, found EOF (End of File)"),
+    }
   }
 
-  // TODO: add a new layer of precedence for assignment
   // <exp> ::= <id> "=" <exp> | <logical-or-exp>
-  // <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }  // this is currently parse_expression()
-
-  // <exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
   fn parse_expression(&mut self) -> Expr {
+    if let Some(Token::Identifier(var_name)) = self.peek() {
+      let name = var_name.clone();
+      if let Some(Token::Assign) = self.tokens.get(self.current + 1) {
+        self.advance(); // consume id
+        self.advance(); // consume '='
+        let expr = self.parse_expression();
+        return Expr::Assign(name, Box::new(expr));
+      }
+    }
+    self.parse_logical_or_expression()
+  }
+
+  // <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
+  fn parse_logical_or_expression(&mut self) -> Expr {
     let mut left = self.parse_logical_and_expression();
     while let Some(op) = self.peek_logical_or_op() {
       self.advance(); // consume the token (||)
@@ -262,37 +271,32 @@ impl Parser {
     left
   }
 
-  // TODO: implement this grammar for variable names:
   // <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
-
-  // <factor> ::= <unary_op> <factor> | "(" <exp> ")" | <int>
   fn parse_factor(&mut self) -> Expr {
-    // 1. Try to extract the UnaryOp if the next token is one.
+    // Try to extract the UnaryOp if the next token is one.
     // "Check if next token is a UnaryOp, if so, pull the value out of it, name that value op and execute the code in the curly brackets
     if let Some(op) = self.peek_unary_op() {
       self.advance();
       let operand = self.parse_factor();
       return Expr::UnOp(op, Box::new(operand));
-    } else if let Some(_op) = match self.peek() {
-      // 2. else check if a parenthesis opens
-      Some(Token::OpenParen) => Some(Token::OpenParen),
-      _ => None,
-    } {
-      self.advance();
-      let node = self.parse_expression(); // Recurse back to top
-      // Check for closing parenthesis
-      if !matches!(self.advance(), Some(Token::CloseParen)) {
-        panic!("Parenthesis not closed!");
+    }
+    match self.peek().cloned() {
+      Some(Token::OpenParen) => {
+        self.advance();
+        let node = self.parse_expression();
+        self.expect(Token::CloseParen, "after expression");
+        return node;
       }
-      return node;
-    } else {
-      // TODO: this probably needs to be updated for variable declaration
-      // 3. Probably just LiteralInt left, but keep match for now
-      match self.advance() {
-        Some(Token::LiteralInt(val)) => return Expr::LiteralInt(*val),
-        Some(other) => panic!("Expected expression, found: {}", other),
-        _ => panic!("Expected expression, found EOF"),
+      Some(Token::LiteralInt(val)) => {
+        self.advance();
+        return Expr::LiteralInt(val);
       }
+      Some(Token::Identifier(var_name)) => {
+        self.advance();
+        return Expr::Var(var_name.to_string());
+      }
+      Some(other_token) => panic!("Expected factor, found: {}", other_token),
+      None => panic!("Expected factor, found EOF"),
     }
   }
 }
