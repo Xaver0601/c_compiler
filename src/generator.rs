@@ -23,6 +23,17 @@ impl Generator {
           &mut self.stack_index
         )
       );
+      // If a function has no return statement, return 0
+      let mut has_return: bool = false;
+      for stmt in &fun.child_statements {
+        if matches!(stmt, ast::Statement::Return(_x)) {
+          has_return = true;
+          break;
+        }
+      }
+      if !has_return {
+        assembly += "movl $0, %eax\n";
+      }
       assembly += "mov %rbp, %rsp\npop %rbp\nret\n"; // Function epilogue
     }
     assembly += ".section .note.GNU-stack,\"\",@progbits\n"; // Metadata so gcc doesn't throw a warning
