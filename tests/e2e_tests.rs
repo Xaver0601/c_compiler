@@ -7,11 +7,24 @@ use std::process::Command;
 #[test]
 fn test_valid_programs_e2e() {
   let valid_dir = "tests/fixtures/valid";
-  let subdirs = ["format", "unary", "binary"];
+
+  let subdirs = fs::read_dir(valid_dir)
+    .expect("Directory not found!")
+    .filter_map(|entry| {
+      let path = entry.unwrap().path();
+      if path.is_dir() {
+        Some(path.file_name().unwrap().to_str().unwrap().to_string())
+      } else {
+        None
+      }
+    })
+    .collect::<Vec<String>>();
+
+  // let subdirs = ["format", "unary", "binary"];
   let mut skipped_files = Vec::new();
 
   for dir in subdirs {
-    let set_dir = valid_dir.to_owned() + "/" + dir;
+    let set_dir = valid_dir.to_owned() + "/" + &dir;
 
     // Read all files in the subdirectory
     for entry in fs::read_dir(set_dir).expect("File not found!") {
@@ -54,7 +67,8 @@ fn test_valid_programs_e2e() {
       }
     }
   }
-  if !skipped_files.is_empty() {  // TODO: print this warning at the very end of all tests
+  if !skipped_files.is_empty() {
+    // TODO: print this warning at the very end of all tests
     eprintln!("\nWarning: The following non '.c' files were skipped:");
     for skipped in skipped_files {
       eprintln!("  - {}", skipped.display());
@@ -66,11 +80,23 @@ fn test_valid_programs_e2e() {
 #[test]
 fn test_invalid_programs_e2e() {
   let invalid_dir = "tests/fixtures/invalid";
-  let subdirs = ["format", "unary", "binary"];
+
+  let subdirs = fs::read_dir(invalid_dir)
+    .expect("Directory not found!")
+    .filter_map(|entry| {
+      let path = entry.unwrap().path();
+      if path.is_dir() {
+        Some(path.file_name().unwrap().to_str().unwrap().to_string())
+      } else {
+        None
+      }
+    })
+    .collect::<Vec<String>>();
+
   let mut skipped_files = Vec::new();
 
   for dir in subdirs {
-    let set_dir = invalid_dir.to_owned() + "/" + dir;
+    let set_dir = invalid_dir.to_owned() + "/" + &dir;
 
     // Read all files in the subdirectory
     for entry in fs::read_dir(set_dir).expect("File not found!") {

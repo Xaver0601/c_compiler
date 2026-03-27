@@ -22,6 +22,7 @@ pub enum Expr {
   LiteralInt(i32),
   UnOp(UnaryOp, Box<Expr>),
   BinOp(BinaryOp, Box<Expr>, Box<Expr>),
+  LogOp(LogicalOp, Box<Expr>, Box<Expr>),
   Assign(String, Box<Expr>),
   Var(String),
 }
@@ -47,8 +48,13 @@ pub enum BinaryOp {
   GreaterEqual, // >=
   Equal,        // ==
   Unequal,      // !=
-  And,          // &&
-  Or,           // ||
+}
+
+// Logical operators than can short-circuit
+#[derive(Clone, Copy)]
+pub enum LogicalOp {
+  And, // &&
+  Or,  // ||
 }
 
 impl Program {
@@ -131,10 +137,17 @@ impl Expr {
           BinaryOp::LessEqual => expr_str.push_str(&format!(" <= {})", &operand2.print())),
           BinaryOp::Greater => expr_str.push_str(&format!(" > {})", &operand2.print())),
           BinaryOp::GreaterEqual => expr_str.push_str(&format!(" >= {})", &operand2.print())),
-          BinaryOp::And => expr_str.push_str(&format!(" && {})", &operand2.print())),
-          BinaryOp::Or => expr_str.push_str(&format!(" || {})", &operand2.print())),
+          // BinaryOp::And => expr_str.push_str(&format!(" && {})", &operand2.print())),
+          // BinaryOp::Or => expr_str.push_str(&format!(" || {})", &operand2.print())),
           BinaryOp::Equal => expr_str.push_str(&format!(" == {})", &operand2.print())),
           BinaryOp::Unequal => expr_str.push_str(&format!(" != {})", &operand2.print())),
+        }
+      }
+      Expr::LogOp(op, operand1, operand2) => {
+        expr_str.push_str(&format!("({}", &operand1.print()));
+        match op {
+          LogicalOp::And => expr_str.push_str(&format!(" && {})", &operand2.print())),
+          LogicalOp::Or => expr_str.push_str(&format!(" || {})", &operand2.print())),
         }
       }
       Expr::Assign(var_name, operand) => {

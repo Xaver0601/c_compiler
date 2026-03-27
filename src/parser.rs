@@ -84,18 +84,18 @@ impl Parser {
 
   // TODO: think about inlining this
   // Check if next token is a logical AND operator (&&)
-  fn peek_logical_and_op(&self) -> Option<BinaryOp> {
+  fn peek_logical_and_op(&self) -> Option<LogicalOp> {
     match self.peek() {
-      Some(Token::And) => Some(BinaryOp::And),
+      Some(Token::And) => Some(LogicalOp::And),
       _ => None,
     }
   }
 
   // TODO: think about inlining this
   // Check if next token is a logical OR operator (||)
-  fn peek_logical_or_op(&self) -> Option<BinaryOp> {
+  fn peek_logical_or_op(&self) -> Option<LogicalOp> {
     match self.peek() {
-      Some(Token::Or) => Some(BinaryOp::Or),
+      Some(Token::Or) => Some(LogicalOp::Or),
       _ => None,
     }
   }
@@ -211,7 +211,7 @@ impl Parser {
     while let Some(op) = self.peek_logical_or_op() {
       self.advance(); // consume the token (||)
       let right = self.parse_logical_and_expression();
-      left = Expr::BinOp(op, Box::new(left), Box::new(right));
+      left = Expr::LogOp(op, Box::new(left), Box::new(right));
     }
     left
   }
@@ -222,7 +222,7 @@ impl Parser {
     while let Some(op) = self.peek_logical_and_op() {
       self.advance(); // consume the token (&&)
       let right = self.parse_equality_expression();
-      left = Expr::BinOp(op, Box::new(left), Box::new(right));
+      left = Expr::LogOp(op, Box::new(left), Box::new(right));
     }
     left
   }

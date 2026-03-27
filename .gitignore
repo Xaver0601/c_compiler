@@ -1,4 +1,5 @@
 /target
 /cheatsheets
 /temp
+/write_a_c_compiler_tests
 *.out

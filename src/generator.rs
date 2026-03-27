@@ -151,34 +151,48 @@ impl Generator {
             asm += "movl $0, %eax\n";
             asm += "setge %al\n";
           }
-          &ast::BinaryOp::Or => {
+        }
+        asm
+      }
+      // LogOp is distinct from BinaryOp because we may not evaluate e2 before we checked if e1 already fulfilled the condition
+      ast::Expr::LogOp(op, operand1, operand2) => {
+        let mut asm = String::new();
+        asm += &Self::generate_expression(operand1, jump_counter, var_map);
+
+        // Claim the current ID and increment immediately for any nested expressions
+        let current_jump = *jump_counter;
+        *jump_counter += 1;
+
+        asm += "push %rax\n";
+        asm += "pop %rcx\n"; // 1st operand in ecx
+        match op {
+          &ast::LogicalOp::Or => {
             asm += "cmpl $0, %ecx\n"; // If 1st operand is zero set ZF flag
-            asm += &format!("je _clause2_{}\n", jump_counter); // If e1 was zero, check e2
+            asm += &format!("je _clause2_{}\n", current_jump); // If e1 was zero, check e2
             asm += "movl $1, %eax\n"; // If 1st operand is not zero we already know that e1 || e2 will evaluate to 1 (short-circuiting)
-            asm += &format!("jmp _end_{}\n", jump_counter); // Return 1 and skip e2
-            asm += &format!("_clause2_{}:\n", jump_counter);
+            asm += &format!("jmp _end_{}\n", current_jump); // Return 1 and skip e2
+            asm += &format!("_clause2_{}:\n", current_jump);
+            asm += &Self::generate_expression(operand2, jump_counter, var_map); // 2nd operand in eax
             asm += "cmpl $0, %eax\n"; // Check if e2 is zero
             asm += "movl $0, %eax\n";
             asm += "setne %al\n"; // If it wasn't, return 1
-            asm += &format!("_end_{}:\n", jump_counter);
-            *jump_counter += 1;
+            asm += &format!("_end_{}:\n", current_jump);
           }
-          &ast::BinaryOp::And => {
+          &ast::LogicalOp::And => {
             asm += "cmpl $0, %ecx\n"; // If 1st operand is zero set ZF flag
-            asm += &format!("jne _clause2_{}\n", jump_counter); // If e1 was not zero, check e2
+            asm += &format!("jne _clause2_{}\n", current_jump); // If e1 was not zero, check e2
             asm += "movl $0, %eax\n"; // If 1st operand is zero we already know that e1 && e2 will evaluate to 0 (short-circuiting)
-            asm += &format!("jmp _end_{}\n", jump_counter); // Return 0 and skip e2
-            asm += &format!("_clause2_{}:\n", jump_counter);
+            asm += &format!("jmp _end_{}\n", current_jump); // Return 0 and skip e2
+            asm += &format!("_clause2_{}:\n", current_jump);
+            asm += &Self::generate_expression(operand2, jump_counter, var_map); // 2nd operand in eax
             asm += "cmpl $0, %eax\n"; // Check if e2 is zero
             asm += "movl $0, %eax\n";
             asm += "setne %al\n"; // If it wasn't, return 1
-            asm += &format!("_end_{}:\n", jump_counter);
-            *jump_counter += 1;
+            asm += &format!("_end_{}:\n", current_jump);
           }
         }
         asm
       }
-      // TODO: implement assembly
       ast::Expr::Assign(var_name, operand) => {
         let mut asm = String::new();
         asm += &Self::generate_expression(operand, jump_counter, var_map);
