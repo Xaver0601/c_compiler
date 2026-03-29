@@ -16,7 +16,7 @@ impl Generator {
       assembly += "  push %rbp\n  mov %rsp, %rbp\n"; // Function prologue
       assembly += &format!(
         "{}",
-        Self::generate_statement(
+        Self::generate_block_item(
           fun,
           &mut self.jump_counter,
           std::collections::HashMap::new(), // Each function (scope) gets a blank variable hashmap
@@ -33,53 +33,73 @@ impl Generator {
       }
       if !has_return {
         assembly += "  movl $0, %eax\n";
+        assembly += "  mov %rbp, %rsp\n  pop %rbp\n  ret\n"; // Function epilogue
       }
-      assembly += "  mov %rbp, %rsp\n  pop %rbp\n  ret\n"; // Function epilogue
     }
     assembly += ".section .note.GNU-stack,\"\",@progbits\n"; // Metadata so gcc doesn't throw a warning
     assembly
   }
 
-  // TODO: implement this
-  // fn generate_block_item() -> String {
-  //   let block_item = String::new();
-  //   block_item
-  // }
-
-  fn generate_statement(
+  fn generate_block_item(
     fun: &ast::Function,
     jump_counter: &mut i32,
     mut var_map: std::collections::HashMap<String, i32>,
     stack_index: &mut i32,
   ) -> String {
-    let mut stmt = String::new();
-    for stm in &fun.child_block_items {
-      match stm {
-        ast::BlockItem::Stmt(ast::Statement::Ret(x)) => {
-          stmt += &Self::generate_expression(x, jump_counter, &var_map);
-          // stmt += "movl %eax, %eax\n";
-        }
-        ast::BlockItem::Stmt(ast::Statement::Expr(x)) => {
-          stmt += &Self::generate_expression(x, jump_counter, &var_map);
-        }
+    let mut block_item = String::new();
+    for block in &fun.child_block_items {
+      match block {
         ast::BlockItem::Decl(var, x) => {
           if var_map.contains_key(var) {
             panic!("Variable '{}' has already been declared", var);
           }
           if x.is_some() {
-            stmt += &Self::generate_expression(x.as_ref().unwrap(), jump_counter, &var_map);
-            stmt += "  push %rax\n"; // Push variable onto stack
+            block_item += &Self::generate_expression(x.as_ref().unwrap(), jump_counter, &var_map);
+            block_item += "  push %rax\n"; // Push variable onto stack
           } else {
-            stmt += "  movl $0, %eax\n"; // Init 'int a;' as a = 0
-            stmt += "  push %rax\n";
+            block_item += "  movl $0, %eax\n"; // Init 'int a;' as a = 0
+            block_item += "  push %rax\n";
           }
           var_map.insert(var.clone(), *stack_index);
           *stack_index -= 8; // This will give each variable 8 bytes of space
         }
-        ast::BlockItem::Stmt(ast::Statement::Cond(_x, _a, _b)) => {
-          // TODO: implement this
-          // stmt += &Self::generate_expression(x, jump_counter, &var_map);
+        ast::BlockItem::Stmt(x) => {
+          block_item += &Self::generate_statement(x, jump_counter, &var_map);
         }
+      }
+    }
+    block_item
+  }
+
+  fn generate_statement(
+    stm: &ast::Statement,
+    jump_counter: &mut i32,
+    var_map: &std::collections::HashMap<String, i32>,
+  ) -> String {
+    let mut stmt = String::new();
+    match stm {
+      ast::Statement::Ret(x) => {
+        stmt += &Self::generate_expression(x, jump_counter, var_map);
+        stmt += "  mov %rbp, %rsp\n  pop %rbp\n  ret\n"; // Function epilogue
+      }
+      ast::Statement::Expr(x) => {
+        stmt += &Self::generate_expression(x, jump_counter, var_map);
+      }
+      ast::Statement::Cond(x, a, b) => {
+        stmt += &Self::generate_expression(x, jump_counter, var_map);
+
+        let current_jump = *jump_counter;
+        *jump_counter += 1;
+
+        stmt += &format!("  cmpl $0, %eax\n");
+        stmt += &format!("  je _else_{}\n", current_jump);
+        stmt += &Self::generate_statement(a, jump_counter, var_map);
+        stmt += &format!("  jmp _post_ifelse_{}\n", current_jump);
+        stmt += &format!("_else_{}:\n", current_jump);
+        if b.is_some() {
+          stmt += &Self::generate_statement(b.as_ref().unwrap(), jump_counter, var_map);
+        }
+        stmt += &format!("_post_ifelse_{}:\n", current_jump);
       }
     }
     stmt
@@ -179,25 +199,25 @@ impl Generator {
             asm += "  cmpl $0, %ecx\n"; // If 1st operand is zero set ZF flag
             asm += &format!("  je _clause2_{}\n", current_jump); // If e1 was zero, check e2
             asm += "  movl $1, %eax\n"; // If 1st operand is not zero we already know that e1 || e2 will evaluate to 1 (short-circuiting)
-            asm += &format!("  jmp _end_{}\n", current_jump); // Return 1 and skip e2
+            asm += &format!("  jmp _post_logOp_{}\n", current_jump); // Return 1 and skip e2
             asm += &format!("  _clause2_{}:\n", current_jump);
             asm += &Self::generate_expression(operand2, jump_counter, var_map); // 2nd operand in eax
             asm += "  cmpl $0, %eax\n"; // Check if e2 is zero
             asm += "  movl $0, %eax\n";
             asm += "  setne %al\n"; // If it wasn't, return 1
-            asm += &format!("  _end_{}:\n", current_jump);
+            asm += &format!("  _post_logOp_{}:\n", current_jump);
           }
           &ast::LogicalOp::And => {
             asm += "  cmpl $0, %ecx\n"; // If 1st operand is zero set ZF flag
             asm += &format!("  jne _clause2_{}\n", current_jump); // If e1 was not zero, check e2
             asm += "  movl $0, %eax\n"; // If 1st operand is zero we already know that e1 && e2 will evaluate to 0 (short-circuiting)
-            asm += &format!("  jmp _end_{}\n", current_jump); // Return 0 and skip e2
+            asm += &format!("  jmp _post_logOp_{}\n", current_jump); // Return 0 and skip e2
             asm += &format!("  _clause2_{}:\n", current_jump);
             asm += &Self::generate_expression(operand2, jump_counter, var_map); // 2nd operand in eax
             asm += "  cmpl $0, %eax\n"; // Check if e2 is zero
             asm += "  movl $0, %eax\n";
             asm += "  setne %al\n"; // If it wasn't, return 1
-            asm += &format!("  _end_{}:\n", current_jump);
+            asm += &format!("  _post_logOp_{}:\n", current_jump);
           }
         }
         asm
