@@ -24,6 +24,10 @@ pub enum Token {
   Greater,          // >
   GreaterEqual,     // >=
   Assign,           // =
+  If,               // if
+  Else,             // else
+  Colon,            // :
+  Question,         // ?
   Keyword(Keyword), // int, return
   LiteralInt(i32),
   Identifier(String), // abcDEF
@@ -59,6 +63,10 @@ impl fmt::Display for Token {
       Token::Greater => write!(f, ">"),
       Token::GreaterEqual => write!(f, ">="),
       Token::Assign => write!(f, "="),
+      Token::If => write!(f, "if"),
+      Token::Else => write!(f, "else"),
+      Token::Colon => write!(f, ":"),
+      Token::Question => write!(f, "?"),
       Token::Keyword(Keyword::INT) => write!(f, "KEYWORD_INT"),
       Token::Keyword(Keyword::RETURN) => write!(f, "KEYWORD_RETURN"),
       Token::Identifier(name) => write!(f, "ID({})", name),
@@ -120,7 +128,11 @@ impl Lexer {
     (?P<less_equal><\=)  |
     (?P<less><)          |
     (?P<greater_equal>>\=) |
-    (?P<greater>>)       
+    (?P<greater>>)       |
+    (?P<if>if)\b         |
+    (?P<else>else)\b     |
+    (?P<colon>\:)        |
+    (?P<question>\?)
     ",
     )
     .unwrap();
@@ -157,6 +169,10 @@ impl Lexer {
           "greater" => Token::Greater,
           "greater_equal" => Token::GreaterEqual,
           "assign" => Token::Assign,
+          "if" => Token::If,
+          "else" => Token::Else,
+          "colon" => Token::Colon,
+          "question" => Token::Question,
           _ => panic!("Unknown token name: {}", found_name),
         };
         self.tokens.push(token);
