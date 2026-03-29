@@ -228,8 +228,19 @@ impl Generator {
           )
         }
       }
-      ast::Expression::Ternary(_x, _a, _b) => {
-        // TODO: implement this
+      ast::Expression::Ternary(x, a, b) => {
+        asm += &Self::generate_expression(x, jump_counter, var_map);
+
+        let current_jump = *jump_counter;
+        *jump_counter += 1;
+
+        asm += &format!("  cmpl $0, %eax\n");
+        asm += &format!("  je _ternary_{}\n", current_jump);
+        asm += &Self::generate_expression(a, jump_counter, var_map);
+        asm += &format!("  jmp _post_ternary_{}\n", current_jump);
+        asm += &format!("_ternary_{}:\n", current_jump);
+        asm += &Self::generate_expression(b, jump_counter, var_map);
+        asm += &format!("_post_ternary_{}:\n", current_jump);
         asm
       }
     }
