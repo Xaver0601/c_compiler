@@ -78,8 +78,8 @@ impl Generator {
           *stack_index -= 8; // This will give each variable 8 bytes of space
           // println!("Local variables not implemented yet");
         }
-        ast::BlockItem::Stmt(ast::Statement::Cond(x, _a, _b)) => {
-          stmt += &Self::generate_expression(x, jump_counter, &var_map);
+        ast::BlockItem::Stmt(ast::Statement::Cond(_x, _a, _b)) => {
+          // stmt += &Self::generate_expression(x, jump_counter, &var_map);
         }
       }
     }

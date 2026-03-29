@@ -127,17 +127,17 @@ impl Statement {
         stmt_str.push_str(&format!("  RETURN EXPR[{}]", x.print()));
       }
       Statement::Cond(x, a, b) => {
-        stmt_str.push_str(&format!("  IF({})", x.print()));
-        stmt_str.push_str(&format!("    EXPR[{}]", a.print()));
+        stmt_str.push_str(&format!("  IF ({})\n", x.print()));
+        stmt_str.push_str(&format!("  {}", a.print()));
         if b.is_some() {
           stmt_str.push_str(&format!(
-            "  ELSE\n    EXPR[{}]",
+            "\n  ELSE\n  {}",
             b.as_ref().unwrap().print()
           ));
         }
       }
     }
-    stmt_str.push('\n');
+    // stmt_str.push('\n');
     stmt_str
   }
 }

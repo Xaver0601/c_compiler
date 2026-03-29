@@ -112,6 +112,8 @@ impl Lexer {
     (?P<semicolon>\;)     |
     (?P<kw_int>int)\b     |
     (?P<kw_return>return)\b |
+    (?P<if>if)\b         |
+    (?P<else>else)\b     |
     (?P<ident>[a-zA-Z]\w*) |
     (?P<lit_int>[0-9]+)   |
     (?P<minus>\-)         |
@@ -129,8 +131,6 @@ impl Lexer {
     (?P<less><)          |
     (?P<greater_equal>>\=) |
     (?P<greater>>)       |
-    (?P<if>if)\b         |
-    (?P<else>else)\b     |
     (?P<colon>\:)        |
     (?P<question>\?)
     ",

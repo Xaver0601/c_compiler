@@ -117,7 +117,7 @@ impl Parser {
     prog
   }
 
-  // <function> ::= "int" <id> "(" ")" "{" <statement> "}"
+  // <function> ::= "int" <id> "(" ")" "{" <block-item> "}"
   fn parse_function(&mut self) -> Function {
     // Function has to start with 'int'
     self.expect(Token::Keyword(Keyword::INT), "for function type");
@@ -132,7 +132,7 @@ impl Parser {
     self.expect(Token::CloseParen, "for function parameters");
     self.expect(Token::OpenBrace, "for function start");
 
-    // Parse the inner statements
+    // Parse the inner block-items (statements or declarations)
     let mut block_items = Vec::new();
     while !matches!(self.peek(), Some(Token::CloseBrace)) {
       block_items.push(self.parse_block_item());
@@ -153,9 +153,11 @@ impl Parser {
     }
   }
 
+  // <block-item> ::= <statement> | <declaration>
   fn parse_block_item(&mut self) -> BlockItem {
     let token = self.peek().cloned();
     match token {
+      // <declaration> ::= "int" <id> [ = <exp> ] ";"
       // Variable declaration
       Some(Token::Keyword(Keyword::INT)) => {
         self.advance(); // consume 'int'
@@ -181,7 +183,7 @@ impl Parser {
     }
   }
 
-  // <statement> ::= "return" <exp> ";" | <exp> | "int" <id> [ = <exp> ] ";"
+  // <statement> ::= "return" <exp> ";" | <exp> ";" | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
   fn parse_statement(&mut self) -> Statement {
     let token = self.peek().cloned();
     match token {
@@ -192,8 +194,21 @@ impl Parser {
         self.expect(Token::Semicolon, "after return statement");
         return Statement::Ret(expr);
       }
+      // If conditional
+      Some(Token::If) => {
+        self.advance(); // consume 'if'
+        self.expect(Token::OpenParen, "after 'if' keyword");
+        let expr = self.parse_expression();
+        self.expect(Token::CloseParen, "after 'if' condition");
+        let a = self.parse_statement();
+        let mut b = None;
+        if let Some(Token::Else) = self.peek() {
+          self.advance(); // consume 'else'
+          b = Some(Box::new(self.parse_statement()));
+        }
+        Statement::Cond(expr, Box::new(a), b)
+      }
       // Variable initialization or standalone expression (e.g 2 + 2;)
-      // TODO: or conditional
       Some(_other_token) => {
         let expr = self.parse_expression();
         self.expect(Token::Semicolon, "after expression statement");
