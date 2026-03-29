@@ -66,7 +66,6 @@ impl Generator {
           if var_map.contains_key(var) {
             panic!("Variable '{}' has already been declared", var);
           }
-          // TODO: implement assembly
           if x.is_some() {
             stmt += &Self::generate_expression(x.as_ref().unwrap(), jump_counter, &var_map);
             stmt += "  push %rax\n"; // Push variable onto stack
@@ -76,9 +75,9 @@ impl Generator {
           }
           var_map.insert(var.clone(), *stack_index);
           *stack_index -= 8; // This will give each variable 8 bytes of space
-          // println!("Local variables not implemented yet");
         }
         ast::BlockItem::Stmt(ast::Statement::Cond(_x, _a, _b)) => {
+          // TODO: implement this
           // stmt += &Self::generate_expression(x, jump_counter, &var_map);
         }
       }
@@ -228,6 +227,10 @@ impl Generator {
             var_name
           )
         }
+      }
+      ast::Expression::Ternary(_x, _a, _b) => {
+        // TODO: implement this
+        asm
       }
     }
   }

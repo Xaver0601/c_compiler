@@ -218,7 +218,7 @@ impl Parser {
     }
   }
 
-  // <exp> ::= <id> "=" <exp> | <logical-or-exp>
+  // <exp> ::= <id> "=" <exp> | <conditional-exp>
   fn parse_expression(&mut self) -> Expression {
     if let Some(Token::Identifier(var_name)) = self.peek() {
       let name = var_name.clone();
@@ -229,7 +229,20 @@ impl Parser {
         return Expression::Assign(name, Box::new(expr));
       }
     }
-    self.parse_logical_or_expression()
+    self.parse_conditional_expression()
+  }
+
+  // <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
+  fn parse_conditional_expression(&mut self) -> Expression {
+    let mut left = self.parse_logical_or_expression();
+    if self.peek() == Some(&Token::Question) {
+      self.advance();   // consume '?'
+      let a = self.parse_expression();
+      self.expect(Token::Colon, "in ternary operation");
+      let b = self.parse_conditional_expression();
+      left = Expression::Ternary(Box::new(left), Box::new(a), Box::new(b))
+    }
+    left
   }
 
   // <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }

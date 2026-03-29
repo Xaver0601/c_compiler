@@ -30,6 +30,7 @@ pub enum Expression {
   LogOp(LogicalOp, Box<Expression>, Box<Expression>),
   Assign(String, Box<Expression>),
   Var(String),
+  Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
 }
 
 // 'Semantic' tokens derived from raw tokens depending on context
@@ -130,10 +131,7 @@ impl Statement {
         stmt_str.push_str(&format!("  IF ({})\n", x.print()));
         stmt_str.push_str(&format!("  {}", a.print()));
         if b.is_some() {
-          stmt_str.push_str(&format!(
-            "\n  ELSE\n  {}",
-            b.as_ref().unwrap().print()
-          ));
+          stmt_str.push_str(&format!("\n  ELSE\n  {}", b.as_ref().unwrap().print()));
         }
       }
     }
@@ -181,6 +179,9 @@ impl Expression {
       }
       Expression::Var(var_name) => {
         expr_str.push_str(&format!("{}", var_name));
+      }
+      Expression::Ternary(x, a, b) => {
+        expr_str.push_str(&format!("{} ? {} : {}", x.print(), a.print(), b.print()));
       }
     }
     expr_str
