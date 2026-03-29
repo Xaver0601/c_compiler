@@ -6,7 +6,7 @@ use std::process::Command;
 // End-To-End test if return value is correct.
 #[test]
 fn test_valid_programs_e2e() {
-  let valid_dir = "tests/fixtures/valid";
+  let valid_dir = "tests/valid";
 
   let subdirs = fs::read_dir(valid_dir)
     .expect("Directory not found!")
@@ -79,7 +79,7 @@ fn test_valid_programs_e2e() {
 // Invalid programs should make the compiler throw an error.
 #[test]
 fn test_invalid_programs_e2e() {
-  let invalid_dir = "tests/fixtures/invalid";
+  let invalid_dir = "tests/invalid";
 
   let subdirs = fs::read_dir(invalid_dir)
     .expect("Directory not found!")
