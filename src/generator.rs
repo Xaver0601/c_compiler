@@ -25,8 +25,8 @@ impl Generator {
       );
       // If a function has no return statement, return 0
       let mut has_return: bool = false;
-      for stmt in &fun.child_statements {
-        if matches!(stmt, ast::Statement::Return(_x)) {
+      for block_item in &fun.child_block_items {
+        if matches!(block_item, ast::BlockItem::Stmt(ast::Statement::Ret(_x))) {
           has_return = true;
           break;
         }
@@ -40,6 +40,12 @@ impl Generator {
     assembly
   }
 
+  // TODO: implement this
+  // fn generate_block_item() -> String {
+  //   let block_item = String::new();
+  //   block_item
+  // }
+
   fn generate_statement(
     fun: &ast::Function,
     jump_counter: &mut i32,
@@ -47,16 +53,16 @@ impl Generator {
     stack_index: &mut i32,
   ) -> String {
     let mut stmt = String::new();
-    for stm in &fun.child_statements {
+    for stm in &fun.child_block_items {
       match stm {
-        ast::Statement::Return(x) => {
+        ast::BlockItem::Stmt(ast::Statement::Ret(x)) => {
           stmt += &Self::generate_expression(x, jump_counter, &var_map);
           // stmt += "movl %eax, %eax\n";
         }
-        ast::Statement::Expression(x) => {
+        ast::BlockItem::Stmt(ast::Statement::Expr(x)) => {
           stmt += &Self::generate_expression(x, jump_counter, &var_map);
         }
-        ast::Statement::Declare(var, x) => {
+        ast::BlockItem::Decl(var, x) => {
           if var_map.contains_key(var) {
             panic!("Variable '{}' has already been declared", var);
           }
@@ -72,23 +78,26 @@ impl Generator {
           *stack_index -= 8; // This will give each variable 8 bytes of space
           // println!("Local variables not implemented yet");
         }
+        ast::BlockItem::Stmt(ast::Statement::Cond(x, _a, _b)) => {
+          stmt += &Self::generate_expression(x, jump_counter, &var_map);
+        }
       }
     }
     stmt
   }
 
   fn generate_expression(
-    expr: &ast::Expr,
+    expr: &ast::Expression,
     jump_counter: &mut i32,
     var_map: &std::collections::HashMap<String, i32>,
   ) -> String {
     let mut asm = String::new();
     match expr {
-      ast::Expr::LiteralInt(val) => {
+      ast::Expression::LiteralInt(val) => {
         asm += &format!("  movl ${}, %eax\n", val);
         asm
       }
-      ast::Expr::UnOp(op, operand) => {
+      ast::Expression::UnOp(op, operand) => {
         asm += &Self::generate_expression(operand, jump_counter, var_map);
         match op {
           ast::UnaryOp::Negate => {
@@ -105,7 +114,7 @@ impl Generator {
         }
         asm
       }
-      ast::Expr::BinOp(op, operand1, operand2) => {
+      ast::Expression::BinOp(op, operand1, operand2) => {
         asm += &Self::generate_expression(operand1, jump_counter, var_map);
         asm += "  push %rax\n";
         asm += &Self::generate_expression(operand2, jump_counter, var_map); // 2nd operand in eax
@@ -157,7 +166,7 @@ impl Generator {
         asm
       }
       // LogOp is distinct from BinaryOp because we may not evaluate e2 before we checked if e1 already fulfilled the condition
-      ast::Expr::LogOp(op, operand1, operand2) => {
+      ast::Expression::LogOp(op, operand1, operand2) => {
         asm += &Self::generate_expression(operand1, jump_counter, var_map);
 
         // Claim the current ID and increment immediately for any nested expressions
@@ -194,7 +203,7 @@ impl Generator {
         }
         asm
       }
-      ast::Expr::Assign(var_name, operand) => {
+      ast::Expression::Assign(var_name, operand) => {
         asm += &Self::generate_expression(operand, jump_counter, var_map);
         let var_offset = var_map.get(var_name);
         if var_offset.is_some() {
@@ -207,7 +216,7 @@ impl Generator {
           )
         }
       }
-      ast::Expr::Var(var_name) => {
+      ast::Expression::Var(var_name) => {
         let var_offset = var_map.get(var_name);
         if var_offset.is_some() {
           // TODO: This will put put the variables value as return value (e.g. when function has no return)

@@ -133,11 +133,14 @@ impl Parser {
     self.expect(Token::OpenBrace, "for function start");
 
     // Parse the inner statements
-    let mut statements = Vec::new();
+    let mut block_items = Vec::new();
     while !matches!(self.peek(), Some(Token::CloseBrace)) {
-      statements.push(self.parse_statement());
+      block_items.push(self.parse_block_item());
       // If the last statement was a 'return' the function ends
-      if matches!(statements.last(), Some(Statement::Return(_x))) {
+      if matches!(
+        block_items.last(),
+        Some(BlockItem::Stmt(Statement::Ret(_x)))
+      ) {
         break;
       }
     }
@@ -146,7 +149,35 @@ impl Parser {
 
     Function {
       name,
-      child_statements: statements,
+      child_block_items: block_items,
+    }
+  }
+
+  fn parse_block_item(&mut self) -> BlockItem {
+    let token = self.peek().cloned();
+    match token {
+      // Variable declaration
+      Some(Token::Keyword(Keyword::INT)) => {
+        self.advance(); // consume 'int'
+        let var_name = match self.advance() {
+          Some(Token::Identifier(n)) => n.clone(),
+          Some(other) => panic!("Expected variable name (string), found: {}", other),
+          None => panic!("Expected variable name (string) in declaration, found EOF (End of File)"),
+        };
+        match self.advance() {
+          Some(Token::Semicolon) => return BlockItem::Decl(var_name, None), // just declaration
+          Some(Token::Assign) => {
+            // Declaration with initialization
+            let expr = self.parse_expression();
+            self.expect(Token::Semicolon, "after variable initialization");
+            return BlockItem::Decl(var_name, Some(expr));
+          }
+          Some(other) => panic!("Expected ';' after statement, found: {}", other),
+          None => panic!("Expected ';' after statement, found EOF (End of File)"),
+        }
+      }
+      Some(_other_token) => BlockItem::Stmt(self.parse_statement()),
+      None => panic!("Expected block item, found EOF (End of File)"),
     }
   }
 
@@ -159,126 +190,107 @@ impl Parser {
         self.advance(); // consume 'return'
         let expr = self.parse_expression();
         self.expect(Token::Semicolon, "after return statement");
-        return Statement::Return(expr);
-      }
-      // Variable declaration
-      Some(Token::Keyword(Keyword::INT)) => {
-        self.advance(); // consume 'int'
-        let var_name = match self.advance() {
-          Some(Token::Identifier(n)) => n.clone(),
-          Some(other) => panic!("Expected variable name (string), found: {}", other),
-          None => panic!("Expected variable name (string) in declaration, found EOF (End of File)"),
-        };
-        match self.advance() {
-          Some(Token::Semicolon) => return Statement::Declare(var_name, None), // just declaration
-          Some(Token::Assign) => {
-            // Declaration with initialization
-            let expr = self.parse_expression();
-            self.expect(Token::Semicolon, "after variable initialization");
-            return Statement::Declare(var_name, Some(expr));
-          }
-          Some(other) => panic!("Expected ';' after statement, found: {}", other),
-          None => panic!("Expected ';' after statement, found EOF (End of File)"),
-        }
+        return Statement::Ret(expr);
       }
       // Variable initialization or standalone expression (e.g 2 + 2;)
+      // TODO: or conditional
       Some(_other_token) => {
         let expr = self.parse_expression();
         self.expect(Token::Semicolon, "after expression statement");
-        Statement::Expression(expr)
+        Statement::Expr(expr)
       }
       None => panic!("Expected statement, found EOF (End of File)"),
     }
   }
 
   // <exp> ::= <id> "=" <exp> | <logical-or-exp>
-  fn parse_expression(&mut self) -> Expr {
+  fn parse_expression(&mut self) -> Expression {
     if let Some(Token::Identifier(var_name)) = self.peek() {
       let name = var_name.clone();
       if let Some(Token::Assign) = self.tokens.get(self.current + 1) {
         self.advance(); // consume id
         self.advance(); // consume '='
         let expr = self.parse_expression();
-        return Expr::Assign(name, Box::new(expr));
+        return Expression::Assign(name, Box::new(expr));
       }
     }
     self.parse_logical_or_expression()
   }
 
   // <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
-  fn parse_logical_or_expression(&mut self) -> Expr {
+  fn parse_logical_or_expression(&mut self) -> Expression {
     let mut left = self.parse_logical_and_expression();
     while let Some(op) = self.peek_logical_or_op() {
       self.advance(); // consume the token (||)
       let right = self.parse_logical_and_expression();
-      left = Expr::LogOp(op, Box::new(left), Box::new(right));
+      left = Expression::LogOp(op, Box::new(left), Box::new(right));
     }
     left
   }
 
   // <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
-  fn parse_logical_and_expression(&mut self) -> Expr {
+  fn parse_logical_and_expression(&mut self) -> Expression {
     let mut left = self.parse_equality_expression();
     while let Some(op) = self.peek_logical_and_op() {
       self.advance(); // consume the token (&&)
       let right = self.parse_equality_expression();
-      left = Expr::LogOp(op, Box::new(left), Box::new(right));
+      left = Expression::LogOp(op, Box::new(left), Box::new(right));
     }
     left
   }
 
   // <equality-exp> ::= <relational-exp> { ("!=" | "==") <relational-exp> }
-  fn parse_equality_expression(&mut self) -> Expr {
+  fn parse_equality_expression(&mut self) -> Expression {
     let mut left = self.parse_relational_expression();
     while let Some(op) = self.peek_equality_op() {
       self.advance(); // consume the token (!=, ==)
       let right = self.parse_relational_expression();
-      left = Expr::BinOp(op, Box::new(left), Box::new(right));
+      left = Expression::BinOp(op, Box::new(left), Box::new(right));
     }
     left
   }
 
   // <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
-  fn parse_relational_expression(&mut self) -> Expr {
+  fn parse_relational_expression(&mut self) -> Expression {
     let mut left = self.parse_additive_expression();
     while let Some(op) = self.peek_relational_op() {
       self.advance(); // consume the token (<, <=, >, >=)
       let right = self.parse_additive_expression();
-      left = Expr::BinOp(op, Box::new(left), Box::new(right));
+      left = Expression::BinOp(op, Box::new(left), Box::new(right));
     }
     left
   }
 
   // <additive_exp> ::= <term> { ("+" | "-") <term> }
-  fn parse_additive_expression(&mut self) -> Expr {
+  fn parse_additive_expression(&mut self) -> Expression {
     let mut left = self.parse_term();
     while let Some(op) = self.peek_expr_op() {
       self.advance(); // consume the + or - token
       let right = self.parse_term();
-      left = Expr::BinOp(op, Box::new(left), Box::new(right));
+      left = Expression::BinOp(op, Box::new(left), Box::new(right));
     }
     left
   }
 
   // <term> ::= <factor> { ("*" | "/") <factor> }
-  fn parse_term(&mut self) -> Expr {
+  fn parse_term(&mut self) -> Expression {
     let mut left = self.parse_factor();
     while let Some(op) = self.peek_term_op() {
       self.advance(); // consume the * or / token
       let right = self.parse_factor();
-      left = Expr::BinOp(op, Box::new(left), Box::new(right));
+      left = Expression::BinOp(op, Box::new(left), Box::new(right));
     }
     left
   }
 
   // <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
-  fn parse_factor(&mut self) -> Expr {
+  fn parse_factor(&mut self) -> Expression {
     // Try to extract the UnaryOp if the next token is one.
     // "Check if next token is a UnaryOp, if so, pull the value out of it, name that value op and execute the code in the curly brackets
     if let Some(op) = self.peek_unary_op() {
       self.advance();
       let operand = self.parse_factor();
-      return Expr::UnOp(op, Box::new(operand));
+      return Expression::UnOp(op, Box::new(operand));
     }
     match self.peek().cloned() {
       Some(Token::OpenParen) => {
@@ -289,11 +301,11 @@ impl Parser {
       }
       Some(Token::LiteralInt(val)) => {
         self.advance();
-        return Expr::LiteralInt(val);
+        return Expression::LiteralInt(val);
       }
       Some(Token::Identifier(var_name)) => {
         self.advance();
-        return Expr::Var(var_name.to_string());
+        return Expression::Var(var_name.to_string());
       }
       Some(other_token) => panic!("Expected factor, found: {}", other_token),
       None => panic!("Expected factor, found EOF"),

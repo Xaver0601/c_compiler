@@ -9,21 +9,26 @@ pub struct Program {
 // #[derive(Default)]
 pub struct Function {
   pub name: String,
-  pub child_statements: Vec<Statement>,
+  pub child_block_items: Vec<BlockItem>,
+}
+
+pub enum BlockItem {
+  Stmt(Statement),
+  Decl(String, Option<Expression>), // int a (= 5);
 }
 
 pub enum Statement {
-  Return(Expr),                  // return x
-  Expression(Expr),              // x + 5, !x
-  Declare(String, Option<Expr>), // int a (= 5);
+  Ret(Expression),                                          // return x
+  Expr(Expression),                                         // x + 5, !x
+  Cond(Expression, Box<Statement>, Option<Box<Statement>>), // if(expr) {statement1} (else {statement2})
 }
 
-pub enum Expr {
+pub enum Expression {
   LiteralInt(i32),
-  UnOp(UnaryOp, Box<Expr>),
-  BinOp(BinaryOp, Box<Expr>, Box<Expr>),
-  LogOp(LogicalOp, Box<Expr>, Box<Expr>),
-  Assign(String, Box<Expr>),
+  UnOp(UnaryOp, Box<Expression>),
+  BinOp(BinaryOp, Box<Expression>, Box<Expression>),
+  LogOp(LogicalOp, Box<Expression>, Box<Expression>),
+  Assign(String, Box<Expression>),
   Var(String),
 }
 
@@ -84,24 +89,21 @@ impl Function {
   pub fn print(&self) -> String {
     let mut func_str = String::new();
     func_str.push_str(&format!("FUNC {}:\n", self.name));
-    for stmt in &self.child_statements {
-      func_str.push_str(&stmt.print());
+    for block_item in &self.child_block_items {
+      func_str.push_str(&block_item.print());
     }
     func_str
   }
 }
 
-impl Statement {
+impl BlockItem {
   pub fn print(&self) -> String {
     let mut stmt_str = String::new();
     match self {
-      Statement::Expression(x) => {
-        stmt_str.push_str(&format!("  EXPR[{}]", x.print()));
+      BlockItem::Stmt(x) => {
+        stmt_str.push_str(&format!("{}", x.print()));
       }
-      Statement::Return(x) => {
-        stmt_str.push_str(&format!("  RETURN EXPR[{}]", x.print()));
-      }
-      Statement::Declare(var, x) => {
+      BlockItem::Decl(var, x) => {
         let temp_str = &mut format!("  DECLARE VAR[{}]", var);
         if x.is_some() {
           temp_str.push_str(&format!(" = EXPR[{}]", x.as_ref().unwrap().print()));
@@ -114,19 +116,45 @@ impl Statement {
   }
 }
 
-impl Expr {
+impl Statement {
+  pub fn print(&self) -> String {
+    let mut stmt_str = String::new();
+    match self {
+      Statement::Expr(x) => {
+        stmt_str.push_str(&format!("  EXPR[{}]", x.print()));
+      }
+      Statement::Ret(x) => {
+        stmt_str.push_str(&format!("  RETURN EXPR[{}]", x.print()));
+      }
+      Statement::Cond(x, a, b) => {
+        stmt_str.push_str(&format!("  IF({})", x.print()));
+        stmt_str.push_str(&format!("    EXPR[{}]", a.print()));
+        if b.is_some() {
+          stmt_str.push_str(&format!(
+            "  ELSE\n    EXPR[{}]",
+            b.as_ref().unwrap().print()
+          ));
+        }
+      }
+    }
+    stmt_str.push('\n');
+    stmt_str
+  }
+}
+
+impl Expression {
   pub fn print(&self) -> String {
     let mut expr_str = String::new();
     match self {
-      Expr::LiteralInt(val) => {
+      Expression::LiteralInt(val) => {
         expr_str.push_str(&format!("{}", val));
       }
-      Expr::UnOp(op, operand) => match op {
+      Expression::UnOp(op, operand) => match op {
         UnaryOp::Negate => expr_str.push_str(&format!("-<{}>", &operand.print())),
         UnaryOp::BitwiseNot => expr_str.push_str(&format!("~<{}>", &operand.print())),
         UnaryOp::LogicalNot => expr_str.push_str(&format!("!<{}>", &operand.print())),
       },
-      Expr::BinOp(op, operand1, operand2) => {
+      Expression::BinOp(op, operand1, operand2) => {
         expr_str.push_str(&format!("({}", &operand1.print()));
         match op {
           BinaryOp::Add => expr_str.push_str(&format!(" + {})", &operand2.print())),
@@ -137,23 +165,21 @@ impl Expr {
           BinaryOp::LessEqual => expr_str.push_str(&format!(" <= {})", &operand2.print())),
           BinaryOp::Greater => expr_str.push_str(&format!(" > {})", &operand2.print())),
           BinaryOp::GreaterEqual => expr_str.push_str(&format!(" >= {})", &operand2.print())),
-          // BinaryOp::And => expr_str.push_str(&format!(" && {})", &operand2.print())),
-          // BinaryOp::Or => expr_str.push_str(&format!(" || {})", &operand2.print())),
           BinaryOp::Equal => expr_str.push_str(&format!(" == {})", &operand2.print())),
           BinaryOp::Unequal => expr_str.push_str(&format!(" != {})", &operand2.print())),
         }
       }
-      Expr::LogOp(op, operand1, operand2) => {
+      Expression::LogOp(op, operand1, operand2) => {
         expr_str.push_str(&format!("({}", &operand1.print()));
         match op {
           LogicalOp::And => expr_str.push_str(&format!(" && {})", &operand2.print())),
           LogicalOp::Or => expr_str.push_str(&format!(" || {})", &operand2.print())),
         }
       }
-      Expr::Assign(var_name, operand) => {
+      Expression::Assign(var_name, operand) => {
         expr_str.push_str(&format!("{} = {}", var_name, &operand.print()));
       }
-      Expr::Var(var_name) => {
+      Expression::Var(var_name) => {
         expr_str.push_str(&format!("{}", var_name));
       }
     }
