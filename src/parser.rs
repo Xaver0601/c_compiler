@@ -236,7 +236,7 @@ impl Parser {
   fn parse_conditional_expression(&mut self) -> Expression {
     let mut left = self.parse_logical_or_expression();
     if self.peek() == Some(&Token::Question) {
-      self.advance();   // consume '?'
+      self.advance(); // consume '?'
       let a = self.parse_expression();
       self.expect(Token::Colon, "in ternary operation");
       let b = self.parse_conditional_expression();

@@ -14,15 +14,20 @@ impl Generator {
     for fun in &self.ast.child_functions {
       assembly += &format!(".globl {name}\n{name}:\n", name = fun.name); // Function label
       assembly += "  push %rbp\n  mov %rsp, %rbp\n"; // Function prologue
-      assembly += &format!(
-        "{}",
-        Self::generate_block_item(
-          fun,
-          &mut self.jump_counter,
-          std::collections::HashMap::new(), // Each function (scope) gets a blank variable hashmap
-          &mut self.stack_index
-        )
-      );
+      // Each function (scope) gets a blank variable hashmap
+      let mut fun_variables: std::collections::HashMap<String, i32> =
+        std::collections::HashMap::new();
+      for block in &fun.child_block_items {
+        assembly += &format!(
+          "{}",
+          Self::generate_block_item(
+            block,
+            &mut self.jump_counter,
+            &mut fun_variables,
+            &mut self.stack_index
+          )
+        );
+      }
       // If a function has no return statement, return 0
       let mut has_return: bool = false;
       for block_item in &fun.child_block_items {
@@ -41,31 +46,29 @@ impl Generator {
   }
 
   fn generate_block_item(
-    fun: &ast::Function,
+    block: &ast::BlockItem,
     jump_counter: &mut i32,
-    mut var_map: std::collections::HashMap<String, i32>,
+    var_map: &mut std::collections::HashMap<String, i32>,
     stack_index: &mut i32,
   ) -> String {
     let mut block_item = String::new();
-    for block in &fun.child_block_items {
-      match block {
-        ast::BlockItem::Decl(var, x) => {
-          if var_map.contains_key(var) {
-            panic!("Variable '{}' has already been declared", var);
-          }
-          if x.is_some() {
-            block_item += &Self::generate_expression(x.as_ref().unwrap(), jump_counter, &var_map);
-            block_item += "  push %rax\n"; // Push variable onto stack
-          } else {
-            block_item += "  movl $0, %eax\n"; // Init 'int a;' as a = 0
-            block_item += "  push %rax\n";
-          }
-          var_map.insert(var.clone(), *stack_index);
-          *stack_index -= 8; // This will give each variable 8 bytes of space
+    match block {
+      ast::BlockItem::Decl(var, x) => {
+        if var_map.contains_key(var) {
+          panic!("Variable '{}' has already been declared", var);
         }
-        ast::BlockItem::Stmt(x) => {
-          block_item += &Self::generate_statement(x, jump_counter, &var_map);
+        if x.is_some() {
+          block_item += &Self::generate_expression(x.as_ref().unwrap(), jump_counter, var_map);
+          block_item += "  push %rax\n"; // Push variable onto stack
+        } else {
+          block_item += "  movl $0, %eax\n"; // Init 'int a;' as a = 0
+          block_item += "  push %rax\n";
         }
+        var_map.insert(var.clone(), *stack_index);
+        *stack_index -= 8; // This will give each variable 8 bytes of space
+      }
+      ast::BlockItem::Stmt(x) => {
+        block_item += &Self::generate_statement(x, jump_counter, var_map, stack_index);
       }
     }
     block_item
@@ -74,7 +77,8 @@ impl Generator {
   fn generate_statement(
     stm: &ast::Statement,
     jump_counter: &mut i32,
-    var_map: &std::collections::HashMap<String, i32>,
+    var_map: &mut std::collections::HashMap<String, i32>,
+    stack_index: &mut i32,
   ) -> String {
     let mut stmt = String::new();
     match stm {
@@ -93,11 +97,12 @@ impl Generator {
 
         stmt += &format!("  cmpl $0, %eax\n");
         stmt += &format!("  je _else_{}\n", current_jump);
-        stmt += &Self::generate_statement(a, jump_counter, var_map);
+        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index);
         stmt += &format!("  jmp _post_ifelse_{}\n", current_jump);
         stmt += &format!("_else_{}:\n", current_jump);
         if b.is_some() {
-          stmt += &Self::generate_statement(b.as_ref().unwrap(), jump_counter, var_map);
+          stmt +=
+            &Self::generate_statement(b.as_ref().unwrap(), jump_counter, var_map, stack_index);
         }
         stmt += &format!("_post_ifelse_{}:\n", current_jump);
       }
