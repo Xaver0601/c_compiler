@@ -21,6 +21,7 @@ pub enum Statement {
   Ret(Expression),                                          // return x
   Expr(Expression),                                         // x + 5, !x
   Cond(Expression, Box<Statement>, Option<Box<Statement>>), // if(expr) {statement1} (else {statement2})
+  Compound(Vec<BlockItem>),
 }
 
 pub enum Expression {
@@ -133,6 +134,13 @@ impl Statement {
         if b.is_some() {
           stmt_str.push_str(&format!("\n  ELSE\n  {}", b.as_ref().unwrap().print()));
         }
+      }
+      Statement::Compound(x) => {
+        stmt_str.push_str(&format!("{{\n"));
+        for block in x {
+          stmt_str.push_str(&format!("  {}", block.print()));
+        }
+        stmt_str.push_str(&format!("  }}"));
       }
     }
     // stmt_str.push('\n');

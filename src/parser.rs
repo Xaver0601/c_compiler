@@ -183,7 +183,7 @@ impl Parser {
     }
   }
 
-  // <statement> ::= "return" <exp> ";" | <exp> ";" | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
+  // <statement> ::= "return" <exp> ";" | <exp> ";" | "if" "(" <exp> ")" <statement> [ "else" <statement> ] | "{" { <block-item> } "}"
   fn parse_statement(&mut self) -> Statement {
     let token = self.peek().cloned();
     match token {
@@ -207,6 +207,16 @@ impl Parser {
           b = Some(Box::new(self.parse_statement()));
         }
         Statement::Cond(expr, Box::new(a), b)
+      }
+      // Compound statement
+      Some(Token::OpenBrace) => {
+        self.advance(); // consume '{'
+        let mut compound_block = Vec::new();
+        while !matches!(self.peek(), Some(Token::CloseBrace)) {
+          compound_block.push(self.parse_block_item());
+        }
+        self.expect(Token::CloseBrace, "after compound statement");
+        Statement::Compound(compound_block)
       }
       // Variable initialization or standalone expression (e.g 2 + 2;)
       Some(_other_token) => {

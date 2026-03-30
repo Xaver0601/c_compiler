@@ -106,6 +106,13 @@ impl Generator {
         }
         stmt += &format!("_post_ifelse_{}:\n", current_jump);
       }
+      ast::Statement::Compound(x) => {
+        // TODO: this will not allow shadow declarations within a scope
+        let mut inner_scope = var_map.clone(); // Every compound statement gets a local copy of the current enclosing scope
+        for block in x {
+          stmt += &Self::generate_block_item(block, jump_counter, &mut inner_scope, stack_index);
+        }
+      }
     }
     stmt
   }
