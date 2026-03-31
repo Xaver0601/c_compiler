@@ -28,11 +28,17 @@ pub enum Token {
   Else,             // else
   Colon,            // :
   Question,         // ?
+  For,              // for
+  While,            // while
+  Do,               // do
+  Break,            // break
+  Continue,         // continue
   Keyword(Keyword), // int, return
   LiteralInt(i32),
   Identifier(String), // abcDEF
 }
 
+// TODO: this extra abstraction is not really needed
 #[derive(Clone, Copy, Default, PartialEq)]
 pub enum Keyword {
   INT,
@@ -67,6 +73,11 @@ impl fmt::Display for Token {
       Token::Else => write!(f, "else"),
       Token::Colon => write!(f, ":"),
       Token::Question => write!(f, "?"),
+      Token::For => write!(f, "for"),
+      Token::While => write!(f, "while"),
+      Token::Do => write!(f, "do"),
+      Token::Break => write!(f, "break"),
+      Token::Continue => write!(f, "continue"),
       Token::Keyword(Keyword::INT) => write!(f, "KEYWORD_INT"),
       Token::Keyword(Keyword::RETURN) => write!(f, "KEYWORD_RETURN"),
       Token::Identifier(name) => write!(f, "ID({})", name),
@@ -114,6 +125,11 @@ impl Lexer {
     (?P<kw_return>return)\b |
     (?P<if>if)\b         |
     (?P<else>else)\b     |
+    (?P<for>for)\b       |
+    (?P<while>while)\b   |
+    (?P<do>do)\b         |
+    (?P<break>break)\b   |
+    (?P<continue>continue)\b |
     (?P<ident>[a-zA-Z]\w*) |
     (?P<lit_int>[0-9]+)   |
     (?P<minus>\-)         |
@@ -173,6 +189,11 @@ impl Lexer {
           "else" => Token::Else,
           "colon" => Token::Colon,
           "question" => Token::Question,
+          "for" => Token::For,
+          "while" => Token::While,
+          "do" => Token::Do,
+          "break" => Token::Break,
+          "continue" => Token::Continue,
           _ => panic!("Unknown token name: {}", found_name),
         };
         self.tokens.push(token);
