@@ -125,6 +125,9 @@ impl Generator {
         stmt += &format!("  add ${}, %rsp\n", 8 * vars_to_release);
         var_map.pop();
       }
+      _ => {
+        // TODO: implement loops
+      }
     }
     stmt
   }

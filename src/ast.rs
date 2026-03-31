@@ -19,9 +19,17 @@ pub enum BlockItem {
 
 pub enum Statement {
   Ret(Expression),                                          // return x
-  Expr(Expression),                                         // x + 5, !x
+  Expr(Expression), // x + 5, !x  TODO: make this Option<Expression> to allow null statements ';'
   Cond(Expression, Box<Statement>, Option<Box<Statement>>), // if(expr) {statement1} (else {statement2})
   Compound(Vec<BlockItem>),
+  #[rustfmt::skip]  // Prevent formatter from line breaking
+  For(Option<Expression>, Expression, Option<Expression>, Box<Statement>), // for(a=1; a < 10; a = a + 1) {stmt}, for(;1;) {stmt}
+  #[rustfmt::skip]
+  ForDecl(String, Option<Expression>, Expression, Option<Expression>, Box<Statement>), // for(int a=1; a < 10; a = a + 1) {stmt}
+  While(Expression, Box<Statement>), // while(x < 5) {stmt}
+  Do(Box<Statement>, Expression),    // do {stmt} while(x < 5)
+  Break,                             // break
+  Continue,                          // continue
 }
 
 pub enum Expression {
@@ -141,6 +149,50 @@ impl Statement {
           stmt_str.push_str(&format!("  {}", block.print()));
         }
         stmt_str.push_str(&format!("  }}"));
+      }
+      Statement::For(init, cond, post, stm) => {
+        stmt_str.push_str(&format!("FOR("));
+        if init.is_some() {
+          stmt_str.push_str(&format!("{}", init.as_ref().unwrap().print()));
+        }
+        stmt_str.push_str(&format!(";"));
+        stmt_str.push_str(&format!("{}", cond.print()));
+        stmt_str.push_str(&format!(";"));
+        if post.is_some() {
+          stmt_str.push_str(&format!("{}", post.as_ref().unwrap().print()));
+        }
+        stmt_str.push_str(&format!(") {{\n"));
+        stmt_str.push_str(&format!("{}", stm.print()));
+        stmt_str.push_str(&format!("}}\n"));
+      }
+      Statement::ForDecl(var, init, cond, post, stm) => {
+        stmt_str.push_str(&format!("FOR(DECLARE {}", var));
+        if init.is_some() {
+          stmt_str.push_str(&format!(" = {}", init.as_ref().unwrap().print()));
+        }
+        stmt_str.push_str(&format!(";"));
+        stmt_str.push_str(&format!("{}", cond.print()));
+        stmt_str.push_str(&format!(";"));
+        if post.is_some() {
+          stmt_str.push_str(&format!("{}", post.as_ref().unwrap().print()));
+        }
+        stmt_str.push_str(&format!(") {{\n"));
+        stmt_str.push_str(&format!("  {}", stm.print()));
+        stmt_str.push_str(&format!("}}\n"));
+      }
+      Statement::While(cond, stm) => {
+        stmt_str.push_str(&format!("WHILE({}){{\n", cond.print()));
+        stmt_str.push_str(&format!("  {}}}\n", stm.print()));
+      }
+      Statement::Do(stm, cond) => {
+        stmt_str.push_str(&format!("DO{{\n  {}\n}}\n", stm.print()));
+        stmt_str.push_str(&format!("WHILE({})\n", cond.print()));
+      }
+      Statement::Break => {
+        stmt_str.push_str(&format!("BREAK"));
+      }
+      Statement::Continue => {
+        stmt_str.push_str(&format!("CONTINUE"));
       }
     }
     // stmt_str.push('\n');
