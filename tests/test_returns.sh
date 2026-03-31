@@ -2,7 +2,7 @@
 # Helper script to find the expected return value of a given test file/set
 
 # Loop through all .c files in the specified directory
-for file in tests/valid/ifelse/*.c; do
+for file in tests/valid/scopes/*.c; do
     # Check if file exists
     if [ -f "$file" ]; then
         # Compile the current file
