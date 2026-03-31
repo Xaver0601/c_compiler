@@ -34,7 +34,7 @@ fn main() {
   let mut generator = generator::Generator {
     ast: program,
     jump_counter: 0,
-    // var_map: std::collections::HashMap::new(),
+    var_map: Vec::new(),
     stack_index: -8,
   };
   let code = generator.generate_program();

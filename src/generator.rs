@@ -4,26 +4,25 @@ use crate::ast;
 pub struct Generator {
   pub ast: ast::Program,
   pub jump_counter: i32,
-  // pub var_map: std::collections::HashMap<String, i32>, // could maybe be used for global variables
+  pub var_map: Vec<std::collections::HashMap<String, i32>>, // Each scope gets a blank hash map
   pub stack_index: i32,
 }
 
 impl Generator {
   pub fn generate_program(&mut self) -> String {
+    self.var_map.push(std::collections::HashMap::new()); // First element is global scope
     let mut assembly = String::new();
     for fun in &self.ast.child_functions {
       assembly += &format!(".globl {name}\n{name}:\n", name = fun.name); // Function label
       assembly += "  push %rbp\n  mov %rsp, %rbp\n"; // Function prologue
-      // Each function (scope) gets a blank variable hashmap
-      let mut fun_variables: std::collections::HashMap<String, i32> =
-        std::collections::HashMap::new();
+      self.var_map.push(std::collections::HashMap::new()); // Function scope
       for block in &fun.child_block_items {
         assembly += &format!(
           "{}",
           Self::generate_block_item(
             block,
             &mut self.jump_counter,
-            &mut fun_variables,
+            &mut self.var_map,
             &mut self.stack_index
           )
         );
@@ -40,6 +39,11 @@ impl Generator {
         assembly += "  movl $0, %eax\n";
         assembly += "  mov %rbp, %rsp\n  pop %rbp\n  ret\n"; // Function epilogue
       }
+      // Move stack pointer to deallocate variables
+      let vars_to_release = self.var_map.last().unwrap().len() as i32;
+      self.stack_index += 8 * vars_to_release;
+      assembly += &format!("  add ${}, %rsp\n", 8 * vars_to_release);
+      self.var_map.pop();
     }
     assembly += ".section .note.GNU-stack,\"\",@progbits\n"; // Metadata so gcc doesn't throw a warning
     assembly
@@ -48,23 +52,27 @@ impl Generator {
   fn generate_block_item(
     block: &ast::BlockItem,
     jump_counter: &mut i32,
-    var_map: &mut std::collections::HashMap<String, i32>,
+    var_map: &mut Vec<std::collections::HashMap<String, i32>>,
     stack_index: &mut i32,
   ) -> String {
     let mut block_item = String::new();
     match block {
       ast::BlockItem::Decl(var, x) => {
-        if var_map.contains_key(var) {
-          panic!("Variable '{}' has already been declared", var);
+        // Only check innermost scope for double declarations
+        if var_map.last().unwrap().contains_key(var) {
+          panic!("Variable '{}' has already been declared in this scope", var);
         }
         if x.is_some() {
           block_item += &Self::generate_expression(x.as_ref().unwrap(), jump_counter, var_map);
           block_item += "  push %rax\n"; // Push variable onto stack
         } else {
-          block_item += "  movl $0, %eax\n"; // Init 'int a;' as a = 0
+          block_item += "  movl $0, %eax\n"; // Default initialize variables to zero
           block_item += "  push %rax\n";
         }
-        var_map.insert(var.clone(), *stack_index);
+        var_map
+          .last_mut()
+          .unwrap()
+          .insert(var.clone(), *stack_index);
         *stack_index -= 8; // This will give each variable 8 bytes of space
       }
       ast::BlockItem::Stmt(x) => {
@@ -77,7 +85,7 @@ impl Generator {
   fn generate_statement(
     stm: &ast::Statement,
     jump_counter: &mut i32,
-    var_map: &mut std::collections::HashMap<String, i32>,
+    var_map: &mut Vec<std::collections::HashMap<String, i32>>,
     stack_index: &mut i32,
   ) -> String {
     let mut stmt = String::new();
@@ -107,11 +115,15 @@ impl Generator {
         stmt += &format!("_post_ifelse_{}:\n", current_jump);
       }
       ast::Statement::Compound(x) => {
-        // TODO: this will not allow shadow declarations within a scope
-        let mut inner_scope = var_map.clone(); // Every compound statement gets a local copy of the current enclosing scope
+        var_map.push(std::collections::HashMap::new()); // New inner scope
         for block in x {
-          stmt += &Self::generate_block_item(block, jump_counter, &mut inner_scope, stack_index);
+          stmt += &Self::generate_block_item(block, jump_counter, var_map, stack_index);
         }
+        // Pop inner scope and deallocate variables
+        let vars_to_release = var_map.last().unwrap().len() as i32;
+        *stack_index += 8 * vars_to_release;
+        stmt += &format!("  add ${}, %rsp\n", 8 * vars_to_release);
+        var_map.pop();
       }
     }
     stmt
@@ -120,7 +132,7 @@ impl Generator {
   fn generate_expression(
     expr: &ast::Expression,
     jump_counter: &mut i32,
-    var_map: &std::collections::HashMap<String, i32>,
+    var_map: &Vec<std::collections::HashMap<String, i32>>,
   ) -> String {
     let mut asm = String::new();
     match expr {
@@ -236,29 +248,29 @@ impl Generator {
       }
       ast::Expression::Assign(var_name, operand) => {
         asm += &Self::generate_expression(operand, jump_counter, var_map);
-        let var_offset = var_map.get(var_name);
-        if var_offset.is_some() {
-          asm += &format!("  movl %eax, {}(%rbp)\n", var_offset.unwrap());
-          asm
-        } else {
-          panic!(
-            "Assigning variable '{}' which has not been declared yet",
-            var_name
-          )
+        // Loop through all scopes from top to bottom to find innermost definition of variable
+        for scope in var_map.iter().rev() {
+          if let Some(&var_offset) = scope.get(var_name) {
+            asm += &format!("  movl %eax, {}(%rbp)\n", var_offset);
+            return asm;
+          }
         }
+        panic!(
+          "Assigning variable '{}' which has not been declared in this scope",
+          var_name
+        )
       }
       ast::Expression::Var(var_name) => {
-        let var_offset = var_map.get(var_name);
-        if var_offset.is_some() {
-          // TODO: This will put put the variables value as return value (e.g. when function has no return)
-          asm += &format!("  movl {}(%rbp), %eax\n", var_offset.unwrap());
-          asm
-        } else {
-          panic!(
-            "Assigning variable '{}' which has not been declared yet",
-            var_name
-          )
+        for scope in var_map.iter().rev() {
+          if let Some(&var_offset) = scope.get(var_name) {
+            asm += &format!("  movl {}(%rbp), %eax\n", var_offset);
+            return asm;
+          }
         }
+        panic!(
+          "Assigning variable '{}' which has not been declared in this scope",
+          var_name
+        )
       }
       ast::Expression::Ternary(x, a, b) => {
         asm += &Self::generate_expression(x, jump_counter, var_map);
