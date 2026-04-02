@@ -183,7 +183,7 @@ impl Parser {
     }
   }
 
-  // <statement> ::= "return" <exp> ";" | <exp> ";" | "if" "(" <exp> ")" <statement> [ "else" <statement> ] | "{" { <block-item> } "}"
+  // <statement> ::= "return" <exp> ";" | <exp-option> ";" | "if" "(" <exp> ")" <statement> [ "else" <statement> ] | "{" { <block-item> } "}"
   fn parse_statement(&mut self) -> Statement {
     let token = self.peek().cloned();
     match token {
@@ -218,13 +218,22 @@ impl Parser {
         self.expect(Token::CloseBrace, "after compound statement");
         Statement::Compound(compound_block)
       }
-      // Variable initialization or standalone expression (e.g 2 + 2;)
+      // Variable initialization, standalone expression (e.g 2 + 2;) or null expression ";"
       Some(_other_token) => {
-        let expr = self.parse_expression();
+        let expr = self.parse_expression_option();
         self.expect(Token::Semicolon, "after expression statement");
         Statement::Expr(expr)
       }
       None => panic!("Expected statement, found EOF (End of File)"),
+    }
+  }
+
+  // <exp-option> ::= <exp> | ""
+  fn parse_expression_option(&mut self) -> Expression {
+    if let Some(Token::Semicolon) = self.peek() {
+      Expression::Null()
+    } else {
+      self.parse_expression()
     }
   }
 

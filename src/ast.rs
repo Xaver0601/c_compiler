@@ -33,6 +33,7 @@ pub enum Statement {
 }
 
 pub enum Expression {
+  Null(),
   LiteralInt(i32),
   UnOp(UnaryOp, Box<Expression>),
   BinOp(BinaryOp, Box<Expression>, Box<Expression>),
@@ -204,6 +205,9 @@ impl Expression {
   pub fn print(&self) -> String {
     let mut expr_str = String::new();
     match self {
+      Expression::Null() => {
+        expr_str.push_str(&format!("NULLEXPR"));
+      }
       Expression::LiteralInt(val) => {
         expr_str.push_str(&format!("{}", val));
       }

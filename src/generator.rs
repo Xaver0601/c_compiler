@@ -139,6 +139,7 @@ impl Generator {
   ) -> String {
     let mut asm = String::new();
     match expr {
+      ast::Expression::Null() => asm,
       ast::Expression::LiteralInt(val) => {
         asm += &format!("  movl ${}, %eax\n", val);
         asm
