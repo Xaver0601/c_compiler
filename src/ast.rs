@@ -171,7 +171,7 @@ impl Statement {
           stmt_str.push_str(&format!("{}", post.as_ref().unwrap().print()));
         }
         stmt_str.push_str(&format!(")\n"));
-        stmt_str.push_str(&format!("{}", stm.print(indent)));
+        stmt_str.push_str(&format!("{}", stm.print(indent + 1)));
       }
       Statement::ForDecl(decl, cond, post, stm) => {
         stmt_str.push_str(&format!("{}FOR({}", pad, decl.print(0)));

@@ -125,9 +125,93 @@ impl Generator {
         stmt += &format!("  add ${}, %rsp\n", 8 * vars_to_release);
         var_map.pop();
       }
-      _ => {
-        // TODO: implement loops
-        println!("Loops not implemented");
+      // TODO: the loops potentially have issues with shadowing variable names
+      // TODO: try to avoid code duplication
+      ast::Statement::For(init, cond, incr, a) => {
+        var_map.push(std::collections::HashMap::new()); // New inner scope
+
+        let current_jump = *jump_counter;
+        *jump_counter += 1;
+
+        stmt += &Self::generate_expression(init.as_ref().unwrap(), jump_counter, var_map);
+        stmt += &format!("_pre_for_{}:\n", current_jump);
+        stmt += &Self::generate_expression(cond, jump_counter, var_map);
+        stmt += &format!("  cmpl $0, %eax\n");
+        stmt += &format!("  je _post_for_{}\n", current_jump);
+        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index);
+        stmt += &Self::generate_expression(incr.as_ref().unwrap(), jump_counter, var_map);
+        stmt += &format!("  jmp _pre_for_{}\n", current_jump);
+        stmt += &format!("_post_for_{}:\n", current_jump);
+        // Pop inner scope and deallocate variables
+        let vars_to_release = var_map.last().unwrap().len() as i32;
+        *stack_index += 8 * vars_to_release;
+        stmt += &format!("  add ${}, %rsp\n", 8 * vars_to_release);
+        var_map.pop();
+      }
+      ast::Statement::ForDecl(init, cond, incr, a) => {
+        var_map.push(std::collections::HashMap::new()); // New inner scope
+
+        let current_jump = *jump_counter;
+        *jump_counter += 1;
+
+        stmt += &Self::generate_block_item(init, jump_counter, var_map, stack_index);
+        stmt += &format!("_pre_for_{}:\n", current_jump);
+        stmt += &Self::generate_expression(cond, jump_counter, var_map);
+        stmt += &format!("  cmpl $0, %eax\n");
+        stmt += &format!("  je _post_for_{}\n", current_jump);
+        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index);
+        stmt += &Self::generate_expression(incr.as_ref().unwrap(), jump_counter, var_map);
+        stmt += &format!("  jmp _pre_for_{}\n", current_jump);
+        stmt += &format!("_post_for_{}:\n", current_jump);
+        // Pop inner scope and deallocate variables
+        let vars_to_release = var_map.last().unwrap().len() as i32;
+        *stack_index += 8 * vars_to_release;
+        stmt += &format!("  add ${}, %rsp\n", 8 * vars_to_release);
+        var_map.pop();
+      }
+      ast::Statement::While(x, a) => {
+        var_map.push(std::collections::HashMap::new()); // New inner scope
+
+        let current_jump = *jump_counter;
+        *jump_counter += 1;
+
+        stmt += &format!("_pre_while_{}:\n", current_jump);
+        stmt += &Self::generate_expression(x, jump_counter, var_map);
+        stmt += &format!("  cmpl $0, %eax\n");
+        stmt += &format!("  je _post_while_{}\n", current_jump);
+        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index);
+        stmt += &format!("  jmp _pre_while_{}\n", current_jump);
+        stmt += &format!("_post_while_{}:\n", current_jump);
+        // Pop inner scope and deallocate variables
+        let vars_to_release = var_map.last().unwrap().len() as i32;
+        *stack_index += 8 * vars_to_release;
+        stmt += &format!("  add ${}, %rsp\n", 8 * vars_to_release);
+        var_map.pop();
+      }
+      ast::Statement::Do(a, x) => {
+        var_map.push(std::collections::HashMap::new()); // New inner scope
+
+        let current_jump = *jump_counter;
+        *jump_counter += 1;
+
+        stmt += &format!("_pre_do_while_{}:\n", current_jump);
+        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index);
+        stmt += &Self::generate_expression(x, jump_counter, var_map);
+        stmt += &format!("  cmpl $0, %eax\n");
+        stmt += &format!("  jne _pre_do_while_{}\n", current_jump);
+        // Pop inner scope and deallocate variables
+        let vars_to_release = var_map.last().unwrap().len() as i32;
+        *stack_index += 8 * vars_to_release;
+        stmt += &format!("  add ${}, %rsp\n", 8 * vars_to_release);
+        var_map.pop();
+      }
+      // TODO: implement this
+      ast::Statement::Break => {
+        // Figure out in what loop break is encountered and do the corresponding jump
+        println!("break not implemented");
+      }
+      ast::Statement::Continue => {
+        println!("continue not implemented");
       }
     }
     stmt
