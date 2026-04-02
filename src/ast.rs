@@ -102,8 +102,9 @@ impl Function {
     let mut func_str = String::new();
     func_str.push_str(&format!("FUNC {}:\n", self.name));
     for block_item in &self.child_block_items {
+      func_str.push_str("  ");
       func_str.push_str(&block_item.print());
-      // TODO: Move \n after every line here
+      func_str.push_str("\n");
     }
     func_str
   }
@@ -117,14 +118,13 @@ impl BlockItem {
         stmt_str.push_str(&format!("{}", x.print()));
       }
       BlockItem::Decl(var, x) => {
-        let temp_str = &mut format!("  DECLARE VAR[{}]", var);
+        let temp_str = &mut format!("DECLARE VAR[{}]", var);
         if x.is_some() {
           temp_str.push_str(&format!(" = EXPR[{}]", x.as_ref().unwrap().print()));
         }
         stmt_str.push_str(temp_str);
       }
     }
-    stmt_str.push('\n');
     stmt_str
   }
 }
@@ -134,22 +134,23 @@ impl Statement {
     let mut stmt_str = String::new();
     match self {
       Statement::Expr(x) => {
-        stmt_str.push_str(&format!("  EXPR[{}]", x.print()));
+        stmt_str.push_str(&format!("EXPR[{}]", x.print()));
       }
       Statement::Ret(x) => {
-        stmt_str.push_str(&format!("  RETURN EXPR[{}]", x.print()));
+        stmt_str.push_str(&format!("RETURN EXPR[{}]", x.print()));
       }
       Statement::Cond(x, a, b) => {
-        stmt_str.push_str(&format!("  IF ({})\n", x.print()));
-        stmt_str.push_str(&format!("  {}", a.print()));
+        stmt_str.push_str(&format!("IF ({})\n", x.print()));
+        stmt_str.push_str(&format!("{}", a.print()));
         if b.is_some() {
-          stmt_str.push_str(&format!("\n  ELSE\n  {}", b.as_ref().unwrap().print()));
+          stmt_str.push_str(&format!("\nELSE\n  {}", b.as_ref().unwrap().print()));
         }
       }
       Statement::Compound(x) => {
         stmt_str.push_str(&format!("{{\n"));
         for block in x {
           stmt_str.push_str(&format!("  {}", block.print()));
+          stmt_str.push_str("\n");
         }
         stmt_str.push_str(&format!("  }}"));
       }
@@ -164,8 +165,8 @@ impl Statement {
         if post.is_some() {
           stmt_str.push_str(&format!("{}", post.as_ref().unwrap().print()));
         }
-        stmt_str.push_str(&format!(")\n"));
-        stmt_str.push_str(&format!("{}", stm.print()));
+        stmt_str.push_str(&format!(")"));
+        stmt_str.push_str(&format!(" {}", stm.print()));
         stmt_str.push_str(&format!("\n"));
       }
       Statement::ForDecl(decl, cond, post, stm) => {
@@ -176,15 +177,15 @@ impl Statement {
           stmt_str.push_str(&format!("{}", post.as_ref().unwrap().print()));
         }
         stmt_str.push_str(&format!(")\n"));
-        stmt_str.push_str(&format!("  {}", stm.print()));
+        stmt_str.push_str(&format!("{}", stm.print()));
         stmt_str.push_str(&format!("\n"));
       }
       Statement::While(cond, stm) => {
         stmt_str.push_str(&format!("WHILE({}){{\n", cond.print()));
-        stmt_str.push_str(&format!("  {}}}\n", stm.print()));
+        stmt_str.push_str(&format!("{}}}\n", stm.print()));
       }
       Statement::Do(stm, cond) => {
-        stmt_str.push_str(&format!("DO{{\n  {}\n}}\n", stm.print()));
+        stmt_str.push_str(&format!("DO{{\n{}\n}}\n", stm.print()));
         stmt_str.push_str(&format!("WHILE({})\n", cond.print()));
       }
       Statement::Break => {
