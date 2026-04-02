@@ -102,8 +102,7 @@ impl Function {
     let mut func_str = String::new();
     func_str.push_str(&format!("FUNC {}:\n", self.name));
     for block_item in &self.child_block_items {
-      func_str.push_str("  ");
-      func_str.push_str(&block_item.print());
+      func_str.push_str(&block_item.print(1));
       func_str.push_str("\n");
     }
     func_str
@@ -111,14 +110,15 @@ impl Function {
 }
 
 impl BlockItem {
-  pub fn print(&self) -> String {
+  pub fn print(&self, indent: usize) -> String {
+    let pad = "  ".repeat(indent);
     let mut stmt_str = String::new();
     match self {
       BlockItem::Stmt(x) => {
-        stmt_str.push_str(&format!("{}", x.print()));
+        stmt_str.push_str(&format!("{}", x.print(indent)));
       }
       BlockItem::Decl(var, x) => {
-        let temp_str = &mut format!("DECLARE VAR[{}]", var);
+        let temp_str = &mut format!("{}DECLARE VAR[{}]", pad, var);
         if x.is_some() {
           temp_str.push_str(&format!(" = EXPR[{}]", x.as_ref().unwrap().print()));
         }
@@ -130,32 +130,37 @@ impl BlockItem {
 }
 
 impl Statement {
-  pub fn print(&self) -> String {
+  pub fn print(&self, indent: usize) -> String {
+    let pad = "  ".repeat(indent);
     let mut stmt_str = String::new();
     match self {
       Statement::Expr(x) => {
-        stmt_str.push_str(&format!("EXPR[{}]", x.print()));
+        stmt_str.push_str(&format!("{}EXPR[{}]", pad, x.print()));
       }
       Statement::Ret(x) => {
-        stmt_str.push_str(&format!("RETURN EXPR[{}]", x.print()));
+        stmt_str.push_str(&format!("{}RETURN EXPR[{}]", pad, x.print()));
       }
       Statement::Cond(x, a, b) => {
-        stmt_str.push_str(&format!("IF ({})\n", x.print()));
-        stmt_str.push_str(&format!("{}", a.print()));
+        stmt_str.push_str(&format!("{}IF ({})\n", pad, x.print()));
+        stmt_str.push_str(&format!("{}", a.print(indent + 1)));
         if b.is_some() {
-          stmt_str.push_str(&format!("\nELSE\n  {}", b.as_ref().unwrap().print()));
+          stmt_str.push_str(&format!(
+            "\n{}ELSE\n  {}",
+            pad,
+            b.as_ref().unwrap().print(indent + 1)
+          ));
         }
       }
       Statement::Compound(x) => {
-        stmt_str.push_str(&format!("{{\n"));
+        stmt_str.push_str(&format!("{}{{\n", pad));
         for block in x {
-          stmt_str.push_str(&format!("  {}", block.print()));
+          stmt_str.push_str(&format!("{}", block.print(indent + 1)));
           stmt_str.push_str("\n");
         }
-        stmt_str.push_str(&format!("  }}"));
+        stmt_str.push_str(&format!("{}}}", pad));
       }
       Statement::For(init, cond, post, stm) => {
-        stmt_str.push_str(&format!("FOR("));
+        stmt_str.push_str(&format!("{}FOR(", pad));
         if init.is_some() {
           stmt_str.push_str(&format!("{}", init.as_ref().unwrap().print()));
         }
@@ -165,37 +170,35 @@ impl Statement {
         if post.is_some() {
           stmt_str.push_str(&format!("{}", post.as_ref().unwrap().print()));
         }
-        stmt_str.push_str(&format!(")"));
-        stmt_str.push_str(&format!(" {}", stm.print()));
-        stmt_str.push_str(&format!("\n"));
+        stmt_str.push_str(&format!(")\n"));
+        stmt_str.push_str(&format!("{}", stm.print(indent)));
       }
       Statement::ForDecl(decl, cond, post, stm) => {
-        stmt_str.push_str(&format!("FOR({}", decl.print()));
+        stmt_str.push_str(&format!("{}FOR({}", pad, decl.print(0)));
         stmt_str.push_str(&format!("{}", cond.print()));
         stmt_str.push_str(&format!(";"));
         if post.is_some() {
           stmt_str.push_str(&format!("{}", post.as_ref().unwrap().print()));
         }
         stmt_str.push_str(&format!(")\n"));
-        stmt_str.push_str(&format!("{}", stm.print()));
-        stmt_str.push_str(&format!("\n"));
+        stmt_str.push_str(&format!("{}", stm.print(indent)));
       }
       Statement::While(cond, stm) => {
-        stmt_str.push_str(&format!("WHILE({}){{\n", cond.print()));
-        stmt_str.push_str(&format!("{}}}\n", stm.print()));
+        stmt_str.push_str(&format!("{}WHILE({}){{\n", pad, cond.print()));
+        stmt_str.push_str(&format!("{}}}\n", stm.print(indent + 1)));
       }
       Statement::Do(stm, cond) => {
-        stmt_str.push_str(&format!("DO{{\n{}\n}}\n", stm.print()));
-        stmt_str.push_str(&format!("WHILE({})\n", cond.print()));
+        #[rustfmt::skip]
+        stmt_str.push_str(&format!("{}DO{{\n{}\n{}}}\n", pad, stm.print(indent + 1), pad));
+        stmt_str.push_str(&format!("{}WHILE({})\n", pad, cond.print()));
       }
       Statement::Break => {
-        stmt_str.push_str(&format!("BREAK"));
+        stmt_str.push_str(&format!("{}BREAK", pad));
       }
       Statement::Continue => {
-        stmt_str.push_str(&format!("CONTINUE"));
+        stmt_str.push_str(&format!("{}CONTINUE", pad));
       }
     }
-    // stmt_str.push('\n');
     stmt_str
   }
 }
