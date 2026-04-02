@@ -183,7 +183,16 @@ impl Parser {
     }
   }
 
-  // <statement> ::= "return" <exp> ";" | <exp-option> ";" | "if" "(" <exp> ")" <statement> [ "else" <statement> ] | "{" { <block-item> } "}"
+  // <statement> ::= "return" <exp> ";"
+  //                  | <exp-option> ";"
+  //                  | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
+  //                  | "{" { <block-item> } "}"
+  //                  | "for" "(" <exp-option> ";" <exp-option> ";" <exp-option> ")" <statement>
+  //                  | "for" "(" <declaration> <exp-option> ";" <exp-option> ")" <statement>   // declaration has ";" itself
+  //                  | "while" "(" <exp> ")" ";" <exp-option> ")" <statement>
+  //                  | "do" <statement> "while" "(" <exp> ")" ";"
+  //                  | "break" ";"
+  //                  | "continue" ";"
   fn parse_statement(&mut self) -> Statement {
     let token = self.peek().cloned();
     match token {
@@ -191,7 +200,7 @@ impl Parser {
       Some(Token::Keyword(Keyword::RETURN)) => {
         self.advance(); // consume 'return'
         let expr = self.parse_expression();
-        self.expect(Token::Semicolon, "after return statement");
+        self.expect(Token::Semicolon, "after 'return' statement");
         return Statement::Ret(expr);
       }
       // If conditional
@@ -218,22 +227,80 @@ impl Parser {
         self.expect(Token::CloseBrace, "after compound statement");
         Statement::Compound(compound_block)
       }
+      Some(Token::For) => {
+        self.advance(); // consume 'for'
+        self.expect(Token::OpenParen, "at 'for' loop");
+
+        // Fancy syntax: wrap init in a Result to allow for both types
+        let init = if self.peek() == Some(&Token::Keyword(Keyword::INT)) {
+          Ok(self.parse_block_item())
+        } else {
+          let expr = self.parse_expression_option();
+          self.expect(Token::Semicolon, "after 'for' loop initialization");
+          Err(expr)
+        };
+
+        let mut cond = self.parse_expression_option();
+        if cond.is_none() {
+          cond = Some(Expression::LiteralInt(1)); // for(;;) is valid syntax but has to be replaced with for(;1;)
+        }
+        self.expect(Token::Semicolon, "after 'for' loop condition");
+        let increment = self.parse_expression_option();
+        self.expect(Token::CloseParen, "after 'for' loop increment");
+        let stmt = self.parse_statement();
+
+        match init {
+          Ok(decl) => Statement::ForDecl(Box::new(decl), cond.unwrap(), increment, Box::new(stmt)),
+          Err(expr) => Statement::For(expr, cond.unwrap(), increment, Box::new(stmt)),
+        }
+      }
+      Some(Token::While) => {
+        self.advance(); // consume 'while'
+        self.expect(Token::OpenParen, "after 'while'");
+        let expr = self.parse_expression();
+        self.expect(Token::CloseParen, "after 'while' condition");
+        let stmt = self.parse_statement();
+        Statement::While(expr, Box::new(stmt))
+      }
+      Some(Token::Do) => {
+        self.advance(); // consume 'do'
+        let stmt = self.parse_statement();
+        self.expect(Token::While, "after 'do' statement");
+        self.expect(Token::OpenParen, "after 'while'");
+        let expr = self.parse_expression();
+        self.expect(Token::CloseParen, "after 'while' condition");
+        Statement::Do(Box::new(stmt), expr)
+      }
+      Some(Token::Break) => {
+        self.advance(); // consume 'break'
+        self.expect(Token::Semicolon, "after 'break' statement");
+        Statement::Break
+      }
+      Some(Token::Continue) => {
+        self.advance(); // consume 'continue'
+        self.expect(Token::Semicolon, "after 'continue' statement");
+        Statement::Continue
+      }
       // Variable initialization, standalone expression (e.g 2 + 2;) or null expression ";"
       Some(_other_token) => {
         let expr = self.parse_expression_option();
         self.expect(Token::Semicolon, "after expression statement");
-        Statement::Expr(expr)
+        if expr.is_none() {
+          return Statement::Expr(Expression::Null());
+        }
+        Statement::Expr(expr.unwrap())
       }
       None => panic!("Expected statement, found EOF (End of File)"),
     }
   }
 
   // <exp-option> ::= <exp> | ""
-  fn parse_expression_option(&mut self) -> Expression {
-    if let Some(Token::Semicolon) = self.peek() {
-      Expression::Null()
-    } else {
-      self.parse_expression()
+  fn parse_expression_option(&mut self) -> Option<Expression> {
+    match self.peek() {
+      Some(Token::Semicolon) => None,
+      Some(Token::CloseParen) => None,
+      Some(_other_token) => Some(self.parse_expression()),
+      _ => panic!("Expected token, found EOF (End of File)"),
     }
   }
 

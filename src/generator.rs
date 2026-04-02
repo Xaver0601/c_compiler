@@ -127,6 +127,7 @@ impl Generator {
       }
       _ => {
         // TODO: implement loops
+        println!("Loops not implemented");
       }
     }
     stmt

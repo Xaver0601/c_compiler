@@ -25,7 +25,8 @@ pub enum Statement {
   #[rustfmt::skip]  // Prevent formatter from line breaking
   For(Option<Expression>, Expression, Option<Expression>, Box<Statement>), // for(a=1; a < 10; a = a + 1) {stmt}, for(;1;) {stmt}
   #[rustfmt::skip]
-  ForDecl(String, Option<Expression>, Expression, Option<Expression>, Box<Statement>), // for(int a=1; a < 10; a = a + 1) {stmt}
+  // ForDecl(String, Option<Expression>, Expression, Option<Expression>, Box<Statement>), // for(int a=1; a < 10; a = a + 1) {stmt}
+  ForDecl(Box<BlockItem>, Expression, Option<Expression>, Box<Statement>), // for(int a=1; a < 10; a = a + 1) {stmt}
   While(Expression, Box<Statement>), // while(x < 5) {stmt}
   Do(Box<Statement>, Expression),    // do {stmt} while(x < 5)
   Break,                             // break
@@ -102,6 +103,7 @@ impl Function {
     func_str.push_str(&format!("FUNC {}:\n", self.name));
     for block_item in &self.child_block_items {
       func_str.push_str(&block_item.print());
+      // TODO: Move \n after every line here
     }
     func_str
   }
@@ -162,24 +164,20 @@ impl Statement {
         if post.is_some() {
           stmt_str.push_str(&format!("{}", post.as_ref().unwrap().print()));
         }
-        stmt_str.push_str(&format!(") {{\n"));
+        stmt_str.push_str(&format!(")\n"));
         stmt_str.push_str(&format!("{}", stm.print()));
-        stmt_str.push_str(&format!("}}\n"));
+        stmt_str.push_str(&format!("\n"));
       }
-      Statement::ForDecl(var, init, cond, post, stm) => {
-        stmt_str.push_str(&format!("FOR(DECLARE {}", var));
-        if init.is_some() {
-          stmt_str.push_str(&format!(" = {}", init.as_ref().unwrap().print()));
-        }
-        stmt_str.push_str(&format!(";"));
+      Statement::ForDecl(decl, cond, post, stm) => {
+        stmt_str.push_str(&format!("FOR({}", decl.print()));
         stmt_str.push_str(&format!("{}", cond.print()));
         stmt_str.push_str(&format!(";"));
         if post.is_some() {
           stmt_str.push_str(&format!("{}", post.as_ref().unwrap().print()));
         }
-        stmt_str.push_str(&format!(") {{\n"));
+        stmt_str.push_str(&format!(")\n"));
         stmt_str.push_str(&format!("  {}", stm.print()));
-        stmt_str.push_str(&format!("}}\n"));
+        stmt_str.push_str(&format!("\n"));
       }
       Statement::While(cond, stm) => {
         stmt_str.push_str(&format!("WHILE({}){{\n", cond.print()));
