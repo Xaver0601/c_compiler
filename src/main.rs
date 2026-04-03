@@ -36,6 +36,7 @@ fn main() {
     jump_counter: 0,
     var_map: Vec::new(),
     stack_index: -8,
+    loop_labels: Vec::new(),
   };
   let code = generator.generate_program();
   // println!("{}", code); // String to string literal: let literal = &String[..]

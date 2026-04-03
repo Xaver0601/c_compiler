@@ -6,6 +6,7 @@ pub struct Generator {
   pub jump_counter: i32,
   pub var_map: Vec<std::collections::HashMap<String, i32>>, // Each scope gets a blank hash map
   pub stack_index: i32,
+  pub loop_labels: Vec<(String, String)>,
 }
 
 impl Generator {
@@ -23,7 +24,8 @@ impl Generator {
             block,
             &mut self.jump_counter,
             &mut self.var_map,
-            &mut self.stack_index
+            &mut self.stack_index,
+            &mut self.loop_labels
           )
         );
       }
@@ -54,6 +56,7 @@ impl Generator {
     jump_counter: &mut i32,
     var_map: &mut Vec<std::collections::HashMap<String, i32>>,
     stack_index: &mut i32,
+    loop_labels: &mut Vec<(String, String)>,
   ) -> String {
     let mut block_item = String::new();
     match block {
@@ -76,7 +79,7 @@ impl Generator {
         *stack_index -= 8; // This will give each variable 8 bytes of space
       }
       ast::BlockItem::Stmt(x) => {
-        block_item += &Self::generate_statement(x, jump_counter, var_map, stack_index);
+        block_item += &Self::generate_statement(x, jump_counter, var_map, stack_index, loop_labels);
       }
     }
     block_item
@@ -87,6 +90,7 @@ impl Generator {
     jump_counter: &mut i32,
     var_map: &mut Vec<std::collections::HashMap<String, i32>>,
     stack_index: &mut i32,
+    loop_labels: &mut Vec<(String, String)>,
   ) -> String {
     let mut stmt = String::new();
     match stm {
@@ -105,19 +109,25 @@ impl Generator {
 
         stmt += &format!("  cmpl $0, %eax\n");
         stmt += &format!("  je _else_{}\n", current_jump);
-        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index);
+        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index, loop_labels);
         stmt += &format!("  jmp _post_ifelse_{}\n", current_jump);
         stmt += &format!("_else_{}:\n", current_jump);
         if b.is_some() {
-          stmt +=
-            &Self::generate_statement(b.as_ref().unwrap(), jump_counter, var_map, stack_index);
+          stmt += &Self::generate_statement(
+            b.as_ref().unwrap(),
+            jump_counter,
+            var_map,
+            stack_index,
+            loop_labels,
+          );
         }
         stmt += &format!("_post_ifelse_{}:\n", current_jump);
       }
       ast::Statement::Compound(x) => {
         var_map.push(std::collections::HashMap::new()); // New inner scope
         for block in x {
-          stmt += &Self::generate_block_item(block, jump_counter, var_map, stack_index);
+          stmt +=
+            &Self::generate_block_item(block, jump_counter, var_map, stack_index, loop_labels);
         }
         // Pop inner scope and deallocate variables
         let vars_to_release = var_map.last().unwrap().len() as i32;
@@ -132,13 +142,21 @@ impl Generator {
 
         let current_jump = *jump_counter;
         *jump_counter += 1;
+        loop_labels.push((
+          format!("_post_for_{}", current_jump),
+          format!("_continue_for_{}", current_jump),
+        ));
 
         stmt += &Self::generate_expression(init.as_ref().unwrap(), jump_counter, var_map);
         stmt += &format!("_pre_for_{}:\n", current_jump);
         stmt += &Self::generate_expression(cond, jump_counter, var_map);
         stmt += &format!("  cmpl $0, %eax\n");
         stmt += &format!("  je _post_for_{}\n", current_jump);
-        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index);
+        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index, loop_labels);
+
+        loop_labels.pop();
+
+        stmt += &format!("  _continue_for_{}:\n", current_jump);
         stmt += &Self::generate_expression(incr.as_ref().unwrap(), jump_counter, var_map);
         stmt += &format!("  jmp _pre_for_{}\n", current_jump);
         stmt += &format!("_post_for_{}:\n", current_jump);
@@ -153,13 +171,21 @@ impl Generator {
 
         let current_jump = *jump_counter;
         *jump_counter += 1;
+        loop_labels.push((
+          format!("_post_for_{}", current_jump),
+          format!("_continue_for_{}", current_jump),
+        ));
 
-        stmt += &Self::generate_block_item(init, jump_counter, var_map, stack_index);
+        stmt += &Self::generate_block_item(init, jump_counter, var_map, stack_index, loop_labels);
         stmt += &format!("_pre_for_{}:\n", current_jump);
         stmt += &Self::generate_expression(cond, jump_counter, var_map);
         stmt += &format!("  cmpl $0, %eax\n");
         stmt += &format!("  je _post_for_{}\n", current_jump);
-        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index);
+        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index, loop_labels);
+
+        loop_labels.pop();
+
+        stmt += &format!("  _continue_for_{}:\n", current_jump);
         stmt += &Self::generate_expression(incr.as_ref().unwrap(), jump_counter, var_map);
         stmt += &format!("  jmp _pre_for_{}\n", current_jump);
         stmt += &format!("_post_for_{}:\n", current_jump);
@@ -174,12 +200,19 @@ impl Generator {
 
         let current_jump = *jump_counter;
         *jump_counter += 1;
+        loop_labels.push((
+          format!("_post_while_{}", current_jump),
+          format!("_pre_while_{}", current_jump),
+        ));
 
         stmt += &format!("_pre_while_{}:\n", current_jump);
         stmt += &Self::generate_expression(x, jump_counter, var_map);
         stmt += &format!("  cmpl $0, %eax\n");
         stmt += &format!("  je _post_while_{}\n", current_jump);
-        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index);
+        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index, loop_labels);
+
+        loop_labels.pop();
+
         stmt += &format!("  jmp _pre_while_{}\n", current_jump);
         stmt += &format!("_post_while_{}:\n", current_jump);
         // Pop inner scope and deallocate variables
@@ -193,25 +226,45 @@ impl Generator {
 
         let current_jump = *jump_counter;
         *jump_counter += 1;
+        loop_labels.push((
+          format!("_post_do_while_{}", current_jump),
+          format!("_continue_do_while_{}", current_jump),
+        ));
 
         stmt += &format!("_pre_do_while_{}:\n", current_jump);
-        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index);
+        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index, loop_labels);
+
+        loop_labels.pop();
+
+        stmt += &format!("_continue_do_while_{}:\n", current_jump);
         stmt += &Self::generate_expression(x, jump_counter, var_map);
         stmt += &format!("  cmpl $0, %eax\n");
         stmt += &format!("  jne _pre_do_while_{}\n", current_jump);
+        stmt += &format!("_post_do_while_{}:\n", current_jump);
         // Pop inner scope and deallocate variables
         let vars_to_release = var_map.last().unwrap().len() as i32;
         *stack_index += 8 * vars_to_release;
         stmt += &format!("  add ${}, %rsp\n", 8 * vars_to_release);
         var_map.pop();
       }
-      // TODO: implement this
       ast::Statement::Break => {
-        // Figure out in what loop break is encountered and do the corresponding jump
-        println!("break not implemented");
+        // TODO: this jumps over the deallocation after a compound statement and will leak memory
+        // and desync the rsp pointer
+        // Jump to _post_{loop}
+        if let Some((break_label, _)) = loop_labels.last() {
+          stmt += &format!("  jmp {}\n", break_label);
+        } else {
+          panic!("'break' statement not in loop");
+        }
       }
       ast::Statement::Continue => {
-        println!("continue not implemented");
+        // In for-loop: jump to _continue_for
+        // In while-loop: jump to _pre_while
+        if let Some((_, continue_label)) = loop_labels.last() {
+          stmt += &format!("  jmp {}\n", continue_label);
+        } else {
+          panic!("'continue' statement not in loop");
+        }
       }
     }
     stmt
