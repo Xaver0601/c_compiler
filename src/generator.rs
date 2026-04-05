@@ -148,7 +148,12 @@ impl Generator {
           var_map.len(), // Store current scope depth so break and continue can clear this and all enclosed scopes
         ));
 
-        stmt += &Self::generate_expression(init.as_ref().unwrap(), jump_counter, var_map);
+        // TODO: be consistent with Option<None> and Expression::Null()
+        if init.is_some() {
+          stmt += &Self::generate_expression(init.as_ref().unwrap(), jump_counter, var_map);
+        } else {
+          stmt += &Self::generate_expression(&ast::Expression::Null(), jump_counter, var_map);
+        }
         stmt += &format!("_pre_for_{}:\n", current_jump);
         stmt += &Self::generate_expression(cond, jump_counter, var_map);
         stmt += &format!("  cmpl $0, %eax\n");
@@ -158,7 +163,11 @@ impl Generator {
         loop_labels.pop();
 
         stmt += &format!("  _continue_for_{}:\n", current_jump);
-        stmt += &Self::generate_expression(incr.as_ref().unwrap(), jump_counter, var_map);
+        if incr.is_some() {
+          stmt += &Self::generate_expression(incr.as_ref().unwrap(), jump_counter, var_map);
+        } else {
+          stmt += &Self::generate_expression(&ast::Expression::Null(), jump_counter, var_map);
+        }
         stmt += &format!("  jmp _pre_for_{}\n", current_jump);
         stmt += &format!("_post_for_{}:\n", current_jump);
         // Pop inner scope and deallocate variables
@@ -188,7 +197,11 @@ impl Generator {
         loop_labels.pop();
 
         stmt += &format!("  _continue_for_{}:\n", current_jump);
-        stmt += &Self::generate_expression(incr.as_ref().unwrap(), jump_counter, var_map);
+        if incr.is_some() {
+          stmt += &Self::generate_expression(incr.as_ref().unwrap(), jump_counter, var_map);
+        } else {
+          stmt += &Self::generate_expression(&ast::Expression::Null(), jump_counter, var_map);
+        }
         stmt += &format!("  jmp _pre_for_{}\n", current_jump);
         stmt += &format!("_post_for_{}:\n", current_jump);
         // Pop inner scope and deallocate variables
