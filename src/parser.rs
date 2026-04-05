@@ -1,5 +1,5 @@
 use crate::ast::*;
-use crate::lexer::{Token};
+use crate::lexer::Token;
 
 // Converts raw tokens into an AST
 pub struct Parser {
@@ -284,10 +284,7 @@ impl Parser {
       Some(_other_token) => {
         let expr = self.parse_expression_option();
         self.expect(Token::Semicolon, "after expression statement");
-        if expr.is_none() {
-          return Statement::Expr(Expression::Null());
-        }
-        Statement::Expr(expr.unwrap())
+        Statement::Expr(expr)
       }
       None => panic!("Expected statement, found EOF (End of File)"),
     }

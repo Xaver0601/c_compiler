@@ -18,23 +18,21 @@ pub enum BlockItem {
 }
 
 pub enum Statement {
-  Ret(Expression),                                          // return x
-  Expr(Expression), // x + 5, !x  TODO: make this Option<Expression> to allow null statements ';'
+  Ret(Expression),                                          // return x (gcc allows empty returns, I don't)
+  Expr(Option<Expression>),                                 // 'x + 5', '!x', '' (null expression)
   Cond(Expression, Box<Statement>, Option<Box<Statement>>), // if(expr) {statement1} (else {statement2})
-  Compound(Vec<BlockItem>),
+  Compound(Vec<BlockItem>),                                 // '{' {stmt1} {stmt2} ...'}'
   #[rustfmt::skip]  // Prevent formatter from line breaking
   For(Option<Expression>, Expression, Option<Expression>, Box<Statement>), // for(a=1; a < 10; a = a + 1) {stmt}, for(;1;) {stmt}
   #[rustfmt::skip]
-  // ForDecl(String, Option<Expression>, Expression, Option<Expression>, Box<Statement>), // for(int a=1; a < 10; a = a + 1) {stmt}
   ForDecl(Box<BlockItem>, Expression, Option<Expression>, Box<Statement>), // for(int a=1; a < 10; a = a + 1) {stmt}
   While(Expression, Box<Statement>), // while(x < 5) {stmt}
   Do(Box<Statement>, Expression),    // do {stmt} while(x < 5)
-  Break,                             // break
-  Continue,                          // continue
+  Break,                             // 'break'
+  Continue,                          // 'continue'
 }
 
 pub enum Expression {
-  Null(),
   LiteralInt(i32),
   UnOp(UnaryOp, Box<Expression>),
   BinOp(BinaryOp, Box<Expression>, Box<Expression>),
@@ -135,7 +133,11 @@ impl Statement {
     let mut stmt_str = String::new();
     match self {
       Statement::Expr(x) => {
-        stmt_str.push_str(&format!("{}EXPR[{}]", pad, x.print()));
+        if let Some(expr) = x {
+          stmt_str.push_str(&format!("{}EXPR[{}]", pad, expr.print()));
+        } else {
+          stmt_str.push_str(&format!("{}EXPR[NULLEXPR]", pad));
+        }
       }
       Statement::Ret(x) => {
         stmt_str.push_str(&format!("{}RETURN EXPR[{}]", pad, x.print()));
@@ -207,9 +209,6 @@ impl Expression {
   pub fn print(&self) -> String {
     let mut expr_str = String::new();
     match self {
-      Expression::Null() => {
-        expr_str.push_str(&format!("NULLEXPR"));
-      }
       Expression::LiteralInt(val) => {
         expr_str.push_str(&format!("{}", val));
       }

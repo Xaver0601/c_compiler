@@ -99,7 +99,9 @@ impl Generator {
         stmt += "  mov %rbp, %rsp\n  pop %rbp\n  ret\n"; // Function epilogue
       }
       ast::Statement::Expr(x) => {
-        stmt += &Self::generate_expression(x, jump_counter, var_map);
+        if let Some(expr) = x {
+          stmt += &Self::generate_expression(expr, jump_counter, var_map);
+        }
       }
       ast::Statement::Cond(x, a, b) => {
         stmt += &Self::generate_expression(x, jump_counter, var_map);
@@ -148,11 +150,8 @@ impl Generator {
           var_map.len(), // Store current scope depth so break and continue can clear this and all enclosed scopes
         ));
 
-        // TODO: be consistent with Option<None> and Expression::Null()
-        if init.is_some() {
-          stmt += &Self::generate_expression(init.as_ref().unwrap(), jump_counter, var_map);
-        } else {
-          stmt += &Self::generate_expression(&ast::Expression::Null(), jump_counter, var_map);
+        if let Some(expr) = init {
+          stmt += &Self::generate_expression(expr, jump_counter, var_map);
         }
         stmt += &format!("_pre_for_{}:\n", current_jump);
         stmt += &Self::generate_expression(cond, jump_counter, var_map);
@@ -163,10 +162,8 @@ impl Generator {
         loop_labels.pop();
 
         stmt += &format!("  _continue_for_{}:\n", current_jump);
-        if incr.is_some() {
-          stmt += &Self::generate_expression(incr.as_ref().unwrap(), jump_counter, var_map);
-        } else {
-          stmt += &Self::generate_expression(&ast::Expression::Null(), jump_counter, var_map);
+        if let Some(expr) = incr {
+          stmt += &Self::generate_expression(expr, jump_counter, var_map);
         }
         stmt += &format!("  jmp _pre_for_{}\n", current_jump);
         stmt += &format!("_post_for_{}:\n", current_jump);
@@ -197,10 +194,8 @@ impl Generator {
         loop_labels.pop();
 
         stmt += &format!("  _continue_for_{}:\n", current_jump);
-        if incr.is_some() {
-          stmt += &Self::generate_expression(incr.as_ref().unwrap(), jump_counter, var_map);
-        } else {
-          stmt += &Self::generate_expression(&ast::Expression::Null(), jump_counter, var_map);
+        if let Some(expr) = incr {
+          stmt += &Self::generate_expression(expr, jump_counter, var_map);
         }
         stmt += &format!("  jmp _pre_for_{}\n", current_jump);
         stmt += &format!("_post_for_{}:\n", current_jump);
@@ -313,7 +308,6 @@ impl Generator {
   ) -> String {
     let mut asm = String::new();
     match expr {
-      ast::Expression::Null() => asm,
       ast::Expression::LiteralInt(val) => {
         asm += &format!("  movl ${}, %eax\n", val);
         asm
