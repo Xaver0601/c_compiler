@@ -1,5 +1,5 @@
 use crate::ast::*;
-use crate::lexer::{Keyword, Token};
+use crate::lexer::{Token};
 
 // Converts raw tokens into an AST
 pub struct Parser {
@@ -197,7 +197,7 @@ impl Parser {
     let token = self.peek().cloned();
     match token {
       // Return statement
-      Some(Token::Keyword(Keyword::RETURN)) => {
+      Some(Token::Return) => {
         self.advance(); // consume 'return'
         let expr = self.parse_expression();
         self.expect(Token::Semicolon, "after 'return' statement");

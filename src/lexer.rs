@@ -4,46 +4,39 @@ use std::fmt;
 // Literal 'raw' tokens
 #[derive(PartialEq, Clone)]
 pub enum Token {
-  OpenBrace,        // {
-  CloseBrace,       // }
-  OpenParen,        // (
-  CloseParen,       // )
-  Semicolon,        // ;
-  Minus,            // -
-  Tilde,            // ~
-  Exclamation,      // !
-  Plus,             // +
-  Star,             // *
-  Slash,            // /
-  And,              // &&
-  Or,               // ||
-  Equal,            // ==
-  Unequal,          // !=
-  Less,             // <
-  LessEqual,        // <=
-  Greater,          // >
-  GreaterEqual,     // >=
-  Assign,           // =
-  If,               // if
-  Else,             // else
-  Colon,            // :
-  Question,         // ?
-  For,              // for
-  While,            // while
-  Do,               // do
-  Break,            // break
-  Continue,         // continue
-  Int,
-  Keyword(Keyword), // int, return
+  OpenBrace,    // {
+  CloseBrace,   // }
+  OpenParen,    // (
+  CloseParen,   // )
+  Semicolon,    // ;
+  Minus,        // -
+  Tilde,        // ~
+  Exclamation,  // !
+  Plus,         // +
+  Star,         // *
+  Slash,        // /
+  And,          // &&
+  Or,           // ||
+  Equal,        // ==
+  Unequal,      // !=
+  Less,         // <
+  LessEqual,    // <=
+  Greater,      // >
+  GreaterEqual, // >=
+  Assign,       // =
+  If,           // if
+  Else,         // else
+  Colon,        // :
+  Question,     // ?
+  For,          // for
+  While,        // while
+  Do,           // do
+  Break,        // break
+  Continue,     // continue
+  Int,          // int
+  Return,       // return
   LiteralInt(i32),
   Identifier(String), // abcDEF
-}
-
-// TODO: this extra abstraction is not really needed
-#[derive(Clone, Copy, Default, PartialEq)]
-pub enum Keyword {
-  #[default] // TODO: change this default
-  RETURN,
 }
 
 impl fmt::Display for Token {
@@ -79,7 +72,7 @@ impl fmt::Display for Token {
       Token::Break => write!(f, "break"),
       Token::Continue => write!(f, "continue"),
       Token::Int => write!(f, "KEYWORD_INT"),
-      Token::Keyword(Keyword::RETURN) => write!(f, "KEYWORD_RETURN"),
+      Token::Return => write!(f, "KEYWORD_RETURN"),
       Token::Identifier(name) => write!(f, "ID({})", name),
       Token::LiteralInt(n) => write!(f, "INT({})", n),
       // _ => write!(f, "NOT IMPLEMENTED"),
@@ -167,7 +160,7 @@ impl Lexer {
           "paren_close" => Token::CloseParen,
           "semicolon" => Token::Semicolon,
           "kw_int" => Token::Int,
-          "kw_return" => Token::Keyword(Keyword::RETURN),
+          "kw_return" => Token::Return,
           "ident" => Token::Identifier(cap[0].to_string()),
           "lit_int" => Token::LiteralInt(cap[0].parse().expect("Not a number")),
           "minus" => Token::Minus,
