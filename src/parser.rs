@@ -82,7 +82,6 @@ impl Parser {
     }
   }
 
-  // TODO: think about inlining this
   // Check if next token is a logical AND operator (&&)
   fn peek_logical_and_op(&self) -> Option<LogicalOp> {
     match self.peek() {
@@ -91,7 +90,6 @@ impl Parser {
     }
   }
 
-  // TODO: think about inlining this
   // Check if next token is a logical OR operator (||)
   fn peek_logical_or_op(&self) -> Option<LogicalOp> {
     match self.peek() {
