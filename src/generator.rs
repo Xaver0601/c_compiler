@@ -6,7 +6,7 @@ pub struct Generator {
   pub jump_counter: i32,
   pub var_map: Vec<std::collections::HashMap<String, i32>>, // Each scope gets a blank hash map
   pub stack_index: i32,
-  pub loop_labels: Vec<(String, String)>,
+  pub loop_labels: Vec<(String, String, usize)>,
 }
 
 impl Generator {
@@ -56,7 +56,7 @@ impl Generator {
     jump_counter: &mut i32,
     var_map: &mut Vec<std::collections::HashMap<String, i32>>,
     stack_index: &mut i32,
-    loop_labels: &mut Vec<(String, String)>,
+    loop_labels: &mut Vec<(String, String, usize)>,
   ) -> String {
     let mut block_item = String::new();
     match block {
@@ -90,7 +90,7 @@ impl Generator {
     jump_counter: &mut i32,
     var_map: &mut Vec<std::collections::HashMap<String, i32>>,
     stack_index: &mut i32,
-    loop_labels: &mut Vec<(String, String)>,
+    loop_labels: &mut Vec<(String, String, usize)>,
   ) -> String {
     let mut stmt = String::new();
     match stm {
@@ -145,6 +145,7 @@ impl Generator {
         loop_labels.push((
           format!("_post_for_{}", current_jump),
           format!("_continue_for_{}", current_jump),
+          var_map.len(), // Store current scope depth so break and continue can clear this and all enclosed scopes
         ));
 
         stmt += &Self::generate_expression(init.as_ref().unwrap(), jump_counter, var_map);
@@ -174,6 +175,7 @@ impl Generator {
         loop_labels.push((
           format!("_post_for_{}", current_jump),
           format!("_continue_for_{}", current_jump),
+          var_map.len(),
         ));
 
         stmt += &Self::generate_block_item(init, jump_counter, var_map, stack_index, loop_labels);
@@ -203,6 +205,7 @@ impl Generator {
         loop_labels.push((
           format!("_post_while_{}", current_jump),
           format!("_pre_while_{}", current_jump),
+          var_map.len(),
         ));
 
         stmt += &format!("_pre_while_{}:\n", current_jump);
@@ -229,6 +232,7 @@ impl Generator {
         loop_labels.push((
           format!("_post_do_while_{}", current_jump),
           format!("_continue_do_while_{}", current_jump),
+          var_map.len(),
         ));
 
         stmt += &format!("_pre_do_while_{}:\n", current_jump);
@@ -247,11 +251,22 @@ impl Generator {
         stmt += &format!("  add ${}, %rsp\n", 8 * vars_to_release);
         var_map.pop();
       }
+      // Both break and continue need to deallocate variables declared inside the loop
+      // as the deallocations after a compound statement are otherwise jumped over.
+      // The CPU would push each variable to a new position on the stack, but stack_index does not change.
+      // This would put a variable at -8*(i+stack_index)(%rbp) for each iteration i, but the same variable will always be
+      // read from -8*(stack_index)(%rbp) which will hold the value from the first iteration.
       ast::Statement::Break => {
-        // TODO: this jumps over the deallocation after a compound statement and will leak memory
-        // and desync the rsp pointer
         // Jump to _post_{loop}
-        if let Some((break_label, _)) = loop_labels.last() {
+        if let Some((break_label, _, loop_depth)) = loop_labels.last() {
+          let mut vars_to_release = 0;
+          for i in (std::ops::Range {
+            start: *loop_depth,
+            end: var_map.len(),
+          }) {
+            vars_to_release += var_map[i].len();
+          }
+          stmt += &format!("  add ${}, %rsp\n", 8 * vars_to_release);
           stmt += &format!("  jmp {}\n", break_label);
         } else {
           panic!("'break' statement not in loop");
@@ -260,7 +275,15 @@ impl Generator {
       ast::Statement::Continue => {
         // In for-loop: jump to _continue_for
         // In while-loop: jump to _pre_while
-        if let Some((_, continue_label)) = loop_labels.last() {
+        if let Some((_, continue_label, loop_depth)) = loop_labels.last() {
+          let mut vars_to_release = 0;
+          for i in (std::ops::Range {
+            start: *loop_depth,
+            end: var_map.len(),
+          }) {
+            vars_to_release += var_map[i].len();
+          }
+          stmt += &format!("  add ${}, %rsp\n", 8 * vars_to_release);
           stmt += &format!("  jmp {}\n", continue_label);
         } else {
           panic!("'continue' statement not in loop");
