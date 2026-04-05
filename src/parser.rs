@@ -266,9 +266,10 @@ impl Parser {
         self.advance(); // consume 'do'
         let stmt = self.parse_statement();
         self.expect(Token::While, "after 'do' statement");
-        self.expect(Token::OpenParen, "after 'while'");
+        self.expect(Token::OpenParen, "after 'do-while'");
         let expr = self.parse_expression();
-        self.expect(Token::CloseParen, "after 'while' condition");
+        self.expect(Token::CloseParen, "after 'do-while' condition");
+        self.expect(Token::Semicolon, "after 'do-while' loop");
         Statement::Do(Box::new(stmt), expr)
       }
       Some(Token::Break) => {

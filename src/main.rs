@@ -29,7 +29,7 @@ fn main() {
   let mut parser = parser::Parser::new(lexer.tokens); // Take ownership of tokens
   let mut program = parser.parse_program(&source_path);
   program.build_pretty_ast();
-  program.print();
+  // program.print();
 
   let mut generator = generator::Generator {
     ast: program,
