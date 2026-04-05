@@ -138,8 +138,7 @@ impl Generator {
         var_map.pop();
       }
       // TODO: the loops potentially have issues with shadowing variable names
-      // TODO: try to avoid code duplication
-      ast::Statement::For(init, cond, incr, a) => {
+      ast::Statement::For(..) | ast::Statement::ForDecl(..) => {
         var_map.push(std::collections::HashMap::new()); // New inner scope
 
         let current_jump = *jump_counter;
@@ -150,41 +149,23 @@ impl Generator {
           var_map.len(), // Store current scope depth so break and continue can clear this and all enclosed scopes
         ));
 
-        if let Some(expr) = init {
-          stmt += &Self::generate_expression(expr, jump_counter, var_map);
-        }
-        stmt += &format!("_pre_for_{}:\n", current_jump);
-        stmt += &Self::generate_expression(cond, jump_counter, var_map);
-        stmt += &format!("  cmpl $0, %eax\n");
-        stmt += &format!("  je _post_for_{}\n", current_jump);
-        stmt += &Self::generate_statement(a, jump_counter, var_map, stack_index, loop_labels);
+        // Match on the exact loop type and call correct function for init.
+        let (cond, incr, a) = match stm {
+          ast::Statement::For(init, cond, incr, a) => {
+            if let Some(expr) = init {
+              stmt += &Self::generate_expression(expr, jump_counter, var_map);
+            }
+            (cond, incr, a)
+          }
+          ast::Statement::ForDecl(init, cond, incr, a) => {
+            stmt +=
+              &Self::generate_block_item(init, jump_counter, var_map, stack_index, loop_labels);
+            (cond, incr, a)
+          }
+          _ => unreachable!(),
+        };
 
-        loop_labels.pop();
-
-        stmt += &format!("  _continue_for_{}:\n", current_jump);
-        if let Some(expr) = incr {
-          stmt += &Self::generate_expression(expr, jump_counter, var_map);
-        }
-        stmt += &format!("  jmp _pre_for_{}\n", current_jump);
-        stmt += &format!("_post_for_{}:\n", current_jump);
-        // Pop inner scope and deallocate variables
-        let vars_to_release = var_map.last().unwrap().len() as i32;
-        *stack_index += 8 * vars_to_release;
-        stmt += &format!("  add ${}, %rsp\n", 8 * vars_to_release);
-        var_map.pop();
-      }
-      ast::Statement::ForDecl(init, cond, incr, a) => {
-        var_map.push(std::collections::HashMap::new()); // New inner scope
-
-        let current_jump = *jump_counter;
-        *jump_counter += 1;
-        loop_labels.push((
-          format!("_post_for_{}", current_jump),
-          format!("_continue_for_{}", current_jump),
-          var_map.len(),
-        ));
-
-        stmt += &Self::generate_block_item(init, jump_counter, var_map, stack_index, loop_labels);
+        // Rest is the same
         stmt += &format!("_pre_for_{}:\n", current_jump);
         stmt += &Self::generate_expression(cond, jump_counter, var_map);
         stmt += &format!("  cmpl $0, %eax\n");
