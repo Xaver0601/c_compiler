@@ -120,7 +120,7 @@ impl Parser {
   // <function> ::= "int" <id> "(" ")" "{" <block-item> "}"
   fn parse_function(&mut self) -> Function {
     // Function has to start with 'int'
-    self.expect(Token::Keyword(Keyword::INT), "for function type");
+    self.expect(Token::Int, "for function type");
 
     // Expect function name
     let name = match self.advance() {
@@ -159,7 +159,7 @@ impl Parser {
     match token {
       // <declaration> ::= "int" <id> [ = <exp> ] ";"
       // Variable declaration
-      Some(Token::Keyword(Keyword::INT)) => {
+      Some(Token::Int) => {
         self.advance(); // consume 'int'
         let var_name = match self.advance() {
           Some(Token::Identifier(n)) => n.clone(),
@@ -232,7 +232,7 @@ impl Parser {
         self.expect(Token::OpenParen, "at 'for' loop");
 
         // Fancy syntax: wrap init in a Result to allow for both types
-        let init = if self.peek() == Some(&Token::Keyword(Keyword::INT)) {
+        let init = if self.peek() == Some(&Token::Int) {
           Ok(self.parse_block_item())
         } else {
           let expr = self.parse_expression_option();
