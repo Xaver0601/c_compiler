@@ -9,6 +9,7 @@ pub struct Program {
 // #[derive(Default)]
 pub struct Function {
   pub name: String,
+  pub parameters: Vec<String>,
   pub child_block_items: Vec<BlockItem>,
 }
 
@@ -18,8 +19,8 @@ pub enum BlockItem {
 }
 
 pub enum Statement {
-  Ret(Expression),                                          // return x (gcc allows empty returns, I don't)
-  Expr(Option<Expression>),                                 // 'x + 5', '!x', '' (null expression)
+  Ret(Expression),          // return x (gcc allows empty returns, I don't)
+  Expr(Option<Expression>), // 'x + 5', '!x', '' (null expression)
   Cond(Expression, Box<Statement>, Option<Box<Statement>>), // if(expr) {statement1} (else {statement2})
   Compound(Vec<BlockItem>),                                 // '{' {stmt1} {stmt2} ...'}'
   #[rustfmt::skip]  // Prevent formatter from line breaking
@@ -98,7 +99,14 @@ impl Program {
 impl Function {
   pub fn print(&self) -> String {
     let mut func_str = String::new();
-    func_str.push_str(&format!("FUNC {}:\n", self.name));
+    func_str.push_str(&format!("FUNC {}(", self.name));
+    for i in 0..self.parameters.len() {
+      func_str.push_str(&format!("{}", self.parameters[i]));
+      if i != self.parameters.len() - 1 {
+        func_str.push_str(&format!(", "));
+      }
+    }
+    func_str.push_str(&format!(")\n"));
     for block_item in &self.child_block_items {
       func_str.push_str(&block_item.print(1));
       func_str.push_str("\n");

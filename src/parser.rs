@@ -115,7 +115,7 @@ impl Parser {
     prog
   }
 
-  // <function> ::= "int" <id> "(" ")" "{" <block-item> "}"
+  // <function> ::= "int" <id> "(" [ "int" <id> { "," "int" <id> } ] ")" ( "{" { <block-item> } "}" ) | ";"
   fn parse_function(&mut self) -> Function {
     // Function has to start with 'int'
     self.expect(Token::Int, "for function type");
@@ -127,26 +127,45 @@ impl Parser {
     };
 
     self.expect(Token::OpenParen, "for function parameters");
-    self.expect(Token::CloseParen, "for function parameters");
-    self.expect(Token::OpenBrace, "for function start");
+    let mut params = Vec::new();
 
-    // Parse the inner block-items (statements or declarations)
-    let mut block_items = Vec::new();
-    while !matches!(self.peek(), Some(Token::CloseBrace)) {
-      block_items.push(self.parse_block_item());
-      // If the last statement was a 'return' the function ends
-      if matches!(
-        block_items.last(),
-        Some(BlockItem::Stmt(Statement::Ret(_x)))
-      ) {
-        break;
+    while !matches!(self.peek(), Some(Token::CloseParen)) {
+      self.expect(Token::Int, "as function parameter type");
+      let p = match self.advance() {
+        Some(Token::Identifier(n)) => n.clone(),
+        _ => panic!("Expected parameter name"),
+      };
+      params.push(p);
+      if !matches!(self.peek().expect("EOF"), Token::CloseParen) {
+        self.expect(Token::Comma, "for next function parameter");
       }
     }
 
-    self.expect(Token::CloseBrace, "for function end");
+    self.expect(Token::CloseParen, "after function parameters");
+
+    let mut block_items = Vec::new();
+    if matches!(self.peek().expect("EOF"), Token::OpenBrace) {
+      self.expect(Token::OpenBrace, "for function body start");
+
+      // Parse the inner block-items (statements or declarations)
+      while !matches!(self.peek(), Some(Token::CloseBrace)) {
+        block_items.push(self.parse_block_item());
+        // If the last statement was a 'return' the function ends
+        if matches!(
+          block_items.last(),
+          Some(BlockItem::Stmt(Statement::Ret(_x)))
+        ) {
+          break;
+        }
+      }
+      self.expect(Token::CloseBrace, "for function body end");
+    } else {
+      self.expect(Token::Semicolon, "after function declaration");
+    }
 
     Function {
-      name,
+      name: name,
+      parameters: params,
       child_block_items: block_items,
     }
   }
