@@ -8,6 +8,7 @@ pub enum Token {
   CloseBrace,   // }
   OpenParen,    // (
   CloseParen,   // )
+  Comma,        // ,
   Semicolon,    // ;
   Minus,        // -
   Tilde,        // ~
@@ -46,6 +47,7 @@ impl fmt::Display for Token {
       Token::CloseBrace => write!(f, "}}"),
       Token::OpenParen => write!(f, "("),
       Token::CloseParen => write!(f, ")"),
+      Token::Comma => write!(f, ","),
       Token::Semicolon => write!(f, ";"),
       Token::Minus => write!(f, "-"),
       Token::Tilde => write!(f, "~"),
@@ -113,6 +115,7 @@ impl Lexer {
     (?P<brace_close>\})   |
     (?P<paren_open>\()    |
     (?P<paren_close>\))   |
+    (?P<comma>\,)     |
     (?P<semicolon>\;)     |
     (?P<kw_int>int)\b     |
     (?P<kw_return>return)\b |
@@ -158,6 +161,7 @@ impl Lexer {
           "brace_close" => Token::CloseBrace,
           "paren_open" => Token::OpenParen,
           "paren_close" => Token::CloseParen,
+          "comma" => Token::Comma,
           "semicolon" => Token::Semicolon,
           "kw_int" => Token::Int,
           "kw_return" => Token::Return,
