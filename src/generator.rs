@@ -439,6 +439,10 @@ impl Generator {
         asm += &Self::generate_expression(b, jump_counter, var_map);
         asm += &format!("_post_ternary_{}:\n", current_jump);
         asm
+      },
+      // TODO: implement this
+      ast::Expression::FunCall(_func, _params) => {
+        asm
       }
     }
   }

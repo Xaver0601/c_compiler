@@ -41,6 +41,7 @@ pub enum Expression {
   Assign(String, Box<Expression>),
   Var(String),
   Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
+  FunCall(String, Option<Vec<Expression>>),
 }
 
 // 'Semantic' tokens derived from raw tokens depending on context
@@ -255,6 +256,18 @@ impl Expression {
       }
       Expression::Ternary(x, a, b) => {
         expr_str.push_str(&format!("{} ? {} : {}", x.print(), a.print(), b.print()));
+      }
+      Expression::FunCall(func, params) => {
+        expr_str.push_str(&format!("CALL {}(", func));
+        if let Some(exprs) = params {
+          for i in 0..exprs.len() {
+            expr_str.push_str(&format!("{}", exprs[i].print()));
+            if i != exprs.len() - 1 {
+              expr_str.push_str(&format!(", "));
+            }
+          }
+        }
+        expr_str.push_str(&format!(")"));
       }
     }
     expr_str

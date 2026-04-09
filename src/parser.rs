@@ -412,7 +412,8 @@ impl Parser {
     left
   }
 
-  // <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
+  // <factor> ::= <function-call> | "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
+  // <function-call> ::= id "(" [ <exp> { "," <exp> } ] ")"
   fn parse_factor(&mut self) -> Expression {
     // Try to extract the UnaryOp if the next token is one.
     // "Check if next token is a UnaryOp, if so, pull the value out of it, name that value op and execute the code in the curly brackets
@@ -432,9 +433,23 @@ impl Parser {
         self.advance();
         return Expression::LiteralInt(val);
       }
-      Some(Token::Identifier(var_name)) => {
-        self.advance();
-        return Expression::Var(var_name.to_string());
+      Some(Token::Identifier(name)) => {
+        self.advance(); // consume id
+        if !matches!(self.peek().expect("EOF"), Token::OpenParen) {
+          return Expression::Var(name.to_string());
+        } else {
+          self.advance(); // consume (
+          let mut vec_exp = Vec::new();
+          while !matches!(self.peek().expect("EOF"), Token::CloseParen) {
+            let expr = self.parse_expression();
+            vec_exp.push(expr);
+            if matches!(self.peek().expect("EOF"), Token::Comma) {
+              self.advance(); // consume ,
+            }
+          }
+          self.advance(); // consume )
+          return Expression::FunCall(name.to_string(), Some(vec_exp));
+        }
       }
       Some(other_token) => panic!("Expected factor, found: {}", other_token),
       None => panic!("Expected factor, found EOF"),
